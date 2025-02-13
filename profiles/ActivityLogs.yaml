@@ -1,0 +1,90 @@
+name: ActivityLogs
+description: Extracts structured activity data from audio transcripts in JSON format.
+
+# Main prompt template
+prompt: |
+  **IMPORTANT: You MUST output a JSON array of activities, enclosed in ```json ... ``` delimiters.**
+
+  **Output Format:**
+  ```json
+  [
+    {
+      "group": "activity_group",
+      "timestamp": "YYYY-MM-DD HH:mm:ss.SSS",
+      "duration_minutes": integer,
+      "description": "activity_description"
+    },
+    ...
+  ]
+  ```
+  If no activities are found, return an empty JSON array [] enclosed in JSON delimiters.
+
+  Instructions for Data Extraction:
+
+  For each activity identified in the transcript, extract the following REQUIRED information:
+    - group (string): Choose the activity group from: [coding, meeting, research, others]. If no suitable group is found, use the group "others". The groups are case-insensitive.
+    - timestamp (string): Determine the start timestamp of the activity in the format YYYY-MM-DD HH:mm:ss.SSS (millisecond precision).
+
+  Timestamp Derivation Logic:
+    - For the first activity in a transcript:
+      - If it's a morning transcript, use the default timestamp YYYY-MM-DD 08:00:00.000
+      - If it's an afternoon transcript, use the default timestamp YYYY-MM-DD 14:30:00.000
+    - For subsequent activities in the same transcript, increment the timestamp chronologically, ensuring uniqueness by adding milliseconds if needed.
+
+  Example Timestamps:
+    "2024-07-27 08:00:00.000", "2024-07-27 08:15:00.000", "2024-07-27 08:15:00.001"
+
+    - duration_minutes (integer): Estimate the activity duration in whole minutes. Use the duration mentioned in the transcript if available (for example, "half an hour" equals 30 minutes); otherwise, use a default duration of 15 minutes.
+    - description (string): Provide a concise, informative summary of the activity.
+
+  Example Transcript:
+    Working on UI. Meeting with John.
+
+  Example JSON Output:
+    [
+      {
+        "group": "coding",
+        "timestamp": "2024-07-27 08:00:00.000",
+        "duration_minutes": 30,
+        "description": "Working on UI"
+      },
+      {
+        "group": "meeting",
+        "timestamp": "2024-07-27 08:30:00.000",
+        "duration_minutes": 15,
+        "description": "Meeting with John"
+      }
+    ]
+
+# Activity groups configuration
+activity_groups:
+  - coding
+  - meeting
+  - research
+  - others
+
+# Additional metadata and notes
+metadata:
+  purpose: Activity extraction from transcripts
+  output_format: JSON array
+  timestamp_format: YYYY-MM-DD HH:mm:ss.SSS
+  default_duration_minutes: 15
+  morning_start_time: 08:00:00.000
+  afternoon_start_time: 14:30:00.000
+
+notes: |
+  1. Purpose & Output:
+     The file tells the LLM to output a JSON array with objects that contain group, timestamp, duration_minutes, and description.
+     It also clearly states what to do if no activities are found.
+
+  2. Instructions for Data Extraction:
+     Detailed instructions are provided on how to derive timestamps (including default values and increment logic),
+     how to estimate duration, and how to summarize the activity.
+
+  3. Activity Groups:
+     The prompt includes a list of recognized groups. It instructs the LLM to use "others" as a default
+     when the transcript doesn't match any known group.
+
+  4. Placement:
+     Place this file in your profiles folder (e.g., at ActivityLogger/profiles/ActivityLogs.yaml).
+     Your backend code will load this file when processing transcripts to build the complete prompt for the LLM.

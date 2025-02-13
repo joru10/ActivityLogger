@@ -1,0 +1,31 @@
+name: "ActivityReports_Annual"
+description: "Generates an annual report by consolidating quarterly reports for the year. No detailed appendix is included."
+prompt: |
+  You are an AI assistant tasked with generating an annual activity report. You are provided with an array of quarterly report objects (each following the quarterly report structure).
+  
+  Your task is to produce an annual report in JSON format with the following structure:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {
+      "total_time": <total_minutes_for_year>,
+      "time_by_group": {
+        "coding": <minutes>,
+        "meeting": <minutes>,
+        "research": <minutes>,
+        "others": <minutes>
+      },
+      "quarterly_breakdown": {
+        "Q1": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Q2": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Q3": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Q4": { "total_time": <minutes>, "time_by_group": { ... } }
+      },
+      "key_insights": "A brief narrative summarizing major trends and performance for the year."
+    },
+    "raw_data": <the original array of quarterly report objects>
+  }
+  END_JSON
+  
+  If no quarterly reports are provided, return an object with empty fields.
+activity_groups: [coding, meeting, research, others]

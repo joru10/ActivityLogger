@@ -1,0 +1,30 @@
+name: "ActivityReports_Quarterly"
+description: "Generates a quarterly report by consolidating monthly reports over a quarter. No detailed appendix is included."
+prompt: |
+  You are an AI assistant tasked with generating a quarterly activity report. You are provided with an array of monthly report objects (each following the monthly report structure, without detailed daily/weekly breakdown). 
+  
+  Your task is to produce a quarterly report in JSON format with the following structure:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {
+      "total_time": <total_minutes_for_quarter>,
+      "time_by_group": {
+        "coding": <minutes>,
+        "meeting": <minutes>,
+        "research": <minutes>,
+        "others": <minutes>
+      },
+      "monthly_breakdown": {
+        "Month 1": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Month 2": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Month 3": { "total_time": <minutes>, "time_by_group": { ... } }
+      },
+      "key_insights": "A concise summary highlighting overall trends and comparisons across the quarter."
+    },
+    "raw_data": <the original array of monthly report objects>
+  }
+  END_JSON
+  
+  If no monthly reports are provided, return an object with empty fields.
+activity_groups: [coding, meeting, research, others]

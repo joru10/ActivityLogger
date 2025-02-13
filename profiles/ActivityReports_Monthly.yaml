@@ -1,0 +1,32 @@
+name: "ActivityReports_Monthly"
+description: "Generates a monthly report by aggregating weekly reports within a calendar month."
+prompt: |
+  You are an AI assistant tasked with generating a monthly activity report. You are provided with an array of weekly report objects, each following the weekly report structure.
+  
+  Your task is to consolidate this data into a monthly report in JSON format with the following structure:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {
+      "total_time": <total_minutes_for_month>,
+      "time_by_group": {
+        "coding": <minutes>,
+        "meeting": <minutes>,
+        "research": <minutes>,
+        "others": <minutes>
+      },
+      "weekly_breakdown": {
+        "Week 1": { "total_time": <minutes>, "time_by_group": { ... } },
+        "Week 2": { "total_time": <minutes>, "time_by_group": { ... } },
+        // etc.
+      },
+      "key_insights": "A summary highlighting overall trends, week-to-week comparisons, and key observations for the month."
+    },
+    "details": [
+      // The array of weekly report objects (with details)
+    ]
+  }
+  END_JSON
+  
+  If no weekly reports are available, return an object with empty fields.
+activity_groups: [coding, meeting, research, others]

@@ -1,0 +1,34 @@
+name: "ActivityReports_Weekly"
+description: "Generates a weekly report by consolidating daily reports (Monday to Sunday) and providing comparisons and trends."
+prompt: |
+  You are an AI assistant tasked with generating a weekly activity report. You are provided with an array of daily report objects, each following the daily report structure.
+  
+  Your task is to produce a weekly report in JSON format with the following structure:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {
+      "total_time": <total_minutes_for_week>,
+      "time_by_group": {
+        "coding": <minutes>,
+        "meeting": <minutes>,
+        "research": <minutes>,
+        "others": <minutes>
+      },
+      "daily_breakdown": {
+        "YYYY-MM-DD": {
+          "total_time": <minutes>,
+          "time_by_group": { ... }
+        },
+        // ...one entry per day...
+      },
+      "key_insights": "A summary comparing days, highlighting trends, and noting significant observations for the week."
+    },
+    "details": [
+      // The array of daily report objects
+    ]
+  }
+  END_JSON
+  
+  If no daily reports are available, return an object with empty fields.
+activity_groups: [coding, meeting, research, others]

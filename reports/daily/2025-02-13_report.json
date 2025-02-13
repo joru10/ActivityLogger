@@ -1,0 +1,28 @@
+{
+  "executive_summary": {
+    "total_time": 90,
+    "time_by_group": {
+      "coding": 60,
+      "meeting": 0,
+      "research": 30,
+      "others": 0
+    },
+    "key_insights": "The majority of the day's activities were dedicated to coding, with a significant portion also spent on research. No time was allocated to meetings or other activities."
+  },
+  "details": [
+    {
+      "duration_minutes": 30,
+      "id": 7,
+      "description": "Looking at news in the AI space",
+      "group": "research",
+      "timestamp": "2025-02-13 08:00:00"
+    },
+    {
+      "duration_minutes": 60,
+      "id": 8,
+      "description": "Reviewing and continuing with the development of the coding interpreter, focusing on the activity report",
+      "group": "coding",
+      "timestamp": "2025-02-13 08:30:00"
+    }
+  ]
+}

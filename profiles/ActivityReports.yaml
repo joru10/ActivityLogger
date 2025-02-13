@@ -1,0 +1,41 @@
+name: "ActivityReports"
+description: "Generates a consolidated analytical report based on daily activity logs."
+prompt: |
+  You are provided with a list of activity logs for a given day. Each activity log includes the following fields:
+  - **group:** The activity group (e.g., coding, meeting, research, others).
+  - **timestamp:** The start timestamp of the activity in the format YYYY-MM-DD HH:mm:ss.SSS.
+  - **duration_minutes:** The duration of the activity in whole minutes.
+  - **description:** A brief description of the activity.
+  
+  Your task is to analyze these logs and generate a consolidated daily report. The report must include:
+  1. A **summary** that shows the total duration spent in each activity group.
+  2. A **details** section that lists, for each activity group, the distinct activities along with the aggregated duration for each unique activity description.
+  3. Optionally, any additional insights or trends that can be derived from the logs.
+  
+  **IMPORTANT: You MUST output a JSON object in the following format:**
+
+  ```json
+  {
+    "summary": {
+      "activity_group1": total_duration_in_minutes,
+      "activity_group2": total_duration_in_minutes,
+      ...
+    },
+    "details": {
+      "activity_group1": [
+        {
+          "description": "activity_description",
+          "total_duration_minutes": integer
+        },
+        ...
+      ],
+      "activity_group2": [
+        {
+          "description": "activity_description",
+          "total_duration_minutes": integer
+        },
+        ...
+      ],
+      ...
+    }
+  }
