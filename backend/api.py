@@ -10,10 +10,9 @@ import json
 
 router = APIRouter()
 
-# --------------------------
-# Activity Logs Endpoints
-# --------------------------
-
+# ------------------------------------------
+# Dependency: Database session
+# ------------------------------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -21,29 +20,32 @@ def get_db():
     finally:
         db.close()
 
+# ------------------------------------------
+# Activity Logs Endpoints
+# ------------------------------------------
 @router.get("/activity-logs", response_model=List[dict])
 def read_activity_logs(date: Optional[str] = Query(None), db: Session = Depends(get_db)):
     query = db.query(ActivityLog)
     if date:
         try:
-            # Parse the date string in format YYYY-MM-DD.
             start_date = datetime.strptime(date, "%Y-%m-%d")
-            # Define the end of that day.
             end_date = start_date + timedelta(days=1)
-            # Filter logs between start_date (inclusive) and end_date (exclusive).
-            query = query.filter(ActivityLog.timestamp >= start_date, ActivityLog.timestamp < end_date)
+            query = query.filter(ActivityLog.timestamp >= start_date,
+                                 ActivityLog.timestamp < end_date)
         except Exception as e:
             raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD.")
     logs = query.all()
-    # Remove SQLAlchemy's internal state from the dict before returning.
     return [
         {k: v for k, v in log.__dict__.items() if k != "_sa_instance_state"}
         for log in logs
     ]
 
-# --------------------------
+# ------------------------------------------
 # Settings Endpoints
-# --------------------------
+# ------------------------------------------
+class Category(BaseModel):
+    name: str
+    groups: List[str]
 
 class Settings(BaseModel):
     notificationInterval: int
@@ -51,16 +53,37 @@ class Settings(BaseModel):
     llmProvider: str
     openRouterApiKey: str = ""
     openRouterLLM: str = ""
-    activityGroups: str
+    categories: List[Category]
 
-# For demonstration purposes, settings are stored in a global dictionary.
+# For demonstration, we store settings in a global variable
 current_settings = {
-    "notificationInterval": 15,
+    "notificationInterval": 60,
     "audioDevice": "default",
     "llmProvider": "LMStudio",
     "openRouterApiKey": "",
     "openRouterLLM": "",
-    "activityGroups": "coding, meeting, research, others"
+    "categories": [
+        {
+            "name": "Coding",
+            "groups": ["ActivityReports project", "ColabsReview", "MultiAgent"]
+        },
+        {
+            "name": "Training",
+            "groups": ["NLP Course", "Deep Learning Specialization"]
+        },
+        {
+            "name": "Research",
+            "groups": ["Paper Reading: Transformer-XX", "Video: New Architecture"]
+        },
+        {
+            "name": "Business",
+            "groups": ["Project Bids", "Client Meetings"]
+        },
+        {
+            "name": "Work&Finance",
+            "groups": ["Unemployment", "Work-search", "Pensions-related"]
+        }
+    ]
 }
 
 @router.get("/settings", response_model=Settings)
@@ -72,18 +95,3 @@ def update_settings(settings: Settings):
     global current_settings
     current_settings = settings.dict()
     return current_settings
-
-# --------------------------
-# Reports Endpoints
-# --------------------------
-
-@router.get("/daily-report")
-def get_daily_report():
-    today_str = date.today().isoformat()
-    report_filename = os.path.join(os.getcwd(), "reports", "daily", f"{today_str}_report.json")
-    if os.path.exists(report_filename):
-        with open(report_filename, "r", encoding="utf-8") as f:
-            report_data = json.load(f)
-        return report_data
-    else:
-        return {"message": "No report found for today."}

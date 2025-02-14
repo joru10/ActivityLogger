@@ -1,28 +1,13 @@
 {
   "executive_summary": {
-    "total_time": 90,
+    "total_time": 120,
     "time_by_group": {
-      "coding": 60,
-      "meeting": 0,
-      "research": 30,
-      "others": 0
+      "Coding": 60,
+      "Training": 30,
+      "Research": 30
     },
-    "key_insights": "The majority of the day's activities were dedicated to coding, with a significant portion also spent on research. No time was allocated to meetings or other activities."
+    "progress_report": "Significant progress was made today on multiple fronts."
   },
-  "details": [
-    {
-      "duration_minutes": 30,
-      "id": 7,
-      "description": "Looking at news in the AI space",
-      "group": "research",
-      "timestamp": "2025-02-13 08:00:00"
-    },
-    {
-      "duration_minutes": 60,
-      "id": 8,
-      "description": "Reviewing and continuing with the development of the coding interpreter, focusing on the activity report",
-      "group": "coding",
-      "timestamp": "2025-02-13 08:30:00"
-    }
-  ]
+  "details": [],
+  "markdown_report": "# Daily Report\n\n**Total Time:** 120 minutes\n\n**Breakdown:**\n- Coding: 60 minutes\n- Training: 30 minutes\n- Research: 30 minutes\n\n**Progress:** Significant progress was made today on multiple fronts."
 }

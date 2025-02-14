@@ -1,34 +1,56 @@
 name: "ActivityReports_Weekly"
-description: "Generates a weekly report by consolidating daily reports (Monday to Sunday) and providing comparisons and trends."
+description: "Generates a weekly report by consolidating daily report objects (Monday to Sunday), aggregating time by group and category, and providing narrative progress insights."
 prompt: |
-  You are an AI assistant tasked with generating a weekly activity report. You are provided with an array of daily report objects, each following the daily report structure.
+  You are an AI assistant tasked with generating a weekly activity report from an array of daily report objects. Each daily report object follows the structure:
   
-  Your task is to produce a weekly report in JSON format with the following structure:
+  {
+    "executive_summary": {
+      "total_time": <total_minutes_for_day>,
+      "time_by_group": { "Coding": <minutes>, "Training": <minutes>, "Research": <minutes>, "Business": <minutes>, "Work&Finance": <minutes>, "others": <minutes> },
+      "progress_report": "A brief narrative of the key achievements for that day."
+    },
+    "details": [ ... ],
+    "markdown_report": "A markdown formatted summary for the day."
+  }
+  
+  Your task is to aggregate these daily reports into a single weekly report with the following JSON structure:
   
   BEGIN_JSON
   {
     "executive_summary": {
-      "total_time": <total_minutes_for_week>,
+      "total_time": "<total_minutes_for_week>",
       "time_by_group": {
-        "coding": <minutes>,
-        "meeting": <minutes>,
-        "research": <minutes>,
-        "others": <minutes>
+        "Coding": "<minutes>",
+        "Training": "<minutes>",
+        "Research": "<minutes>",
+        "Business": "<minutes>",
+        "Work&Finance": "<minutes>",
+        "others": "<minutes>"
       },
       "daily_breakdown": {
         "YYYY-MM-DD": {
-          "total_time": <minutes>,
+          "total_time": "<minutes>",
           "time_by_group": { ... }
         },
-        // ...one entry per day...
+        // One entry per day of the week
       },
-      "key_insights": "A summary comparing days, highlighting trends, and noting significant observations for the week."
+      "progress_report": "A narrative summary highlighting key achievements, trends, and progress made during the week. Compare days where relevant."
     },
     "details": [
-      // The array of daily report objects
-    ]
+      // The array of daily report objects provided as input.
+    ],
+    "markdown_report": "A markdown formatted summary of the weekly report, including key insights, totals, and progress."
   }
   END_JSON
   
-  If no daily reports are available, return an object with empty fields.
+  If no daily reports are available for the week, return:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {},
+    "details": [],
+    "markdown_report": "No daily reports available for this week."
+  }
+  END_JSON
+  
 activity_groups: [coding, meeting, research, others]

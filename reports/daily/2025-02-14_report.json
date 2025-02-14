@@ -1,0 +1,38 @@
+{
+  "executive_summary": {
+    "total_time": 405,
+    "time_by_group": {
+      "others": 45,
+      "coding": 300,
+      "research": 60
+    },
+    "progress_report": "The majority of the time was spent on coding activities (300 minutes), followed by research (60 minutes) and others (45 minutes). Coding focused on debugging an activity report."
+  },
+  "details": [
+    {
+      "group": "others",
+      "timestamp": "2025-02-14T08:00:00",
+      "duration_minutes": 15,
+      "description": ""
+    },
+    {
+      "group": "coding",
+      "timestamp": "2025-02-14T08:00:00",
+      "duration_minutes": 300,
+      "description": "Debugging the activity report"
+    },
+    {
+      "group": "research",
+      "timestamp": "2025-02-14T13:00:00",
+      "duration_minutes": 60,
+      "description": "Getting up to date with news about artificial intelligence"
+    },
+    {
+      "group": "others",
+      "timestamp": "2025-02-14T14:00:00",
+      "duration_minutes": 30,
+      "description": "Looking at some training"
+    }
+  ],
+  "markdown_report": "**Executive Summary**\n\nTotal time spent on activities was **405 minutes**, distributed among the groups as follows:\n- Coding: **300 minutes** (Debugging the activity report)\n- Research: **60 minutes** (Getting up to date with news about artificial intelligence)\n- Others: **45 minutes**\n\n**Details of Activities:**\n1. **Group:** others, **Timestamp:** 2025-02-14T08:00:00, **Duration:** 15 minutes\n2. **Group:** coding, **Timestamp:** 2025-02-14T08:00:00, **Duration:** 300 minutes (Debugging the activity report)\n3. **Group:** research, **Timestamp:** 2025-02-14T13:00:00, **Duration:** 60 minutes\n4. **Group:** others, **Timestamp:** 2025-02-14T14:00:00, **Duration:** 30 minutes"
+}

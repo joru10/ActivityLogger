@@ -1,30 +1,49 @@
 name: "ActivityReports_Quarterly"
-description: "Generates a quarterly report by consolidating monthly reports over a quarter. No detailed appendix is included."
+description: "Generates a quarterly report by consolidating monthly report objects over a quarter, summarizing trends, totals, and overall progress."
 prompt: |
-  You are an AI assistant tasked with generating a quarterly activity report. You are provided with an array of monthly report objects (each following the monthly report structure, without detailed daily/weekly breakdown). 
-  
-  Your task is to produce a quarterly report in JSON format with the following structure:
-  
+  You are an AI assistant tasked with generating a quarterly activity report from an array of monthly report objects. Each monthly report object includes:
+  - "executive_summary": {
+      "total_time": <total_minutes_for_month>,
+      "time_by_group": { "coding": <minutes>, "meeting": <minutes>, "research": <minutes>, "others": <minutes> },
+      "progress_report": "A brief narrative of the key achievements for that month."
+    }
+  - "details": [ ... ],
+  - "markdown_report": "A markdown formatted summary for the month."
+
+  Your task is to consolidate these monthly reports into a single quarterly report. Your output must be valid JSON with the following structure:
+
   BEGIN_JSON
   {
     "executive_summary": {
-      "total_time": <total_minutes_for_quarter>,
+      "total_time": "<total_minutes_for_quarter>",
       "time_by_group": {
-        "coding": <minutes>,
-        "meeting": <minutes>,
-        "research": <minutes>,
-        "others": <minutes>
+        "coding": "<minutes>",
+        "meeting": "<minutes>",
+        "research": "<minutes>",
+        "others": "<minutes>"
       },
       "monthly_breakdown": {
-        "Month 1": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Month 2": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Month 3": { "total_time": <minutes>, "time_by_group": { ... } }
+        "Month 1": { "total_time": "<minutes>", "time_by_group": { ... } },
+        "Month 2": { "total_time": "<minutes>", "time_by_group": { ... } },
+        "Month 3": { "total_time": "<minutes>", "time_by_group": { ... } }
       },
-      "key_insights": "A concise summary highlighting overall trends and comparisons across the quarter."
+      "progress_report": "A narrative summary highlighting overall trends, key challenges, and major progress achieved during the quarter."
     },
-    "raw_data": <the original array of monthly report objects>
+    "details": [
+      // The array of monthly report objects.
+    ],
+    "markdown_report": "A markdown formatted summary of the quarterly report, including key insights, trends, and progress."
   }
   END_JSON
+
+  If no monthly reports are available, return:
   
-  If no monthly reports are provided, return an object with empty fields.
+  BEGIN_JSON
+  {
+    "executive_summary": {},
+    "details": [],
+    "markdown_report": "No monthly reports available for this quarter."
+  }
+  END_JSON
+
 activity_groups: [coding, meeting, research, others]

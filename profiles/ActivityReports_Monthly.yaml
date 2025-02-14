@@ -1,32 +1,51 @@
 name: "ActivityReports_Monthly"
-description: "Generates a monthly report by aggregating weekly reports within a calendar month."
+description: "Generates a monthly report by aggregating daily reports within a calendar month, summarizing totals, trends, and progress."
 prompt: |
-  You are an AI assistant tasked with generating a monthly activity report. You are provided with an array of weekly report objects, each following the weekly report structure.
-  
-  Your task is to consolidate this data into a monthly report in JSON format with the following structure:
-  
+  You are an AI assistant tasked with generating a monthly activity report from an array of daily report objects. Each daily report object contains:
+  - "executive_summary": {
+      "total_time": <total_minutes_for_day>,
+      "time_by_group": { "coding": <minutes>, "meeting": <minutes>, "research": <minutes>, "others": <minutes> },
+      "progress_report": "A brief narrative of the key achievements for that day."
+    }
+  - "details": [ ... ],
+  - "markdown_report": "A markdown formatted summary for the day."
+
+  Your task is to consolidate these daily reports into a single monthly report. Your output must be valid JSON with the following structure:
+
   BEGIN_JSON
   {
     "executive_summary": {
-      "total_time": <total_minutes_for_month>,
+      "total_time": "<total_minutes_for_month>",
       "time_by_group": {
-        "coding": <minutes>,
-        "meeting": <minutes>,
-        "research": <minutes>,
-        "others": <minutes>
+        "coding": "<minutes>",
+        "meeting": "<minutes>",
+        "research": "<minutes>",
+        "others": "<minutes>"
       },
-      "weekly_breakdown": {
-        "Week 1": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Week 2": { "total_time": <minutes>, "time_by_group": { ... } },
-        // etc.
+      "daily_breakdown": {
+        "YYYY-MM-DD": {
+          "total_time": "<minutes>",
+          "time_by_group": { ... }
+        },
+        // One entry per day of the month for which a report exists.
       },
-      "key_insights": "A summary highlighting overall trends, week-to-week comparisons, and key observations for the month."
+      "progress_report": "A narrative summary highlighting the main work, achievements, and progress made over the month."
     },
     "details": [
-      // The array of weekly report objects (with details)
-    ]
+      // The array of daily report objects.
+    ],
+    "markdown_report": "A markdown formatted summary of the monthly report, including key insights, totals, and progress."
   }
   END_JSON
+
+  If no daily reports are available, return:
   
-  If no weekly reports are available, return an object with empty fields.
+  BEGIN_JSON
+  {
+    "executive_summary": {},
+    "details": [],
+    "markdown_report": "No daily reports available for this month."
+  }
+  END_JSON
+
 activity_groups: [coding, meeting, research, others]

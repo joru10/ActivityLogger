@@ -1,39 +1,41 @@
 name: "ActivityReports_Daily"
-description: "Generates a daily report analyzing the activity logs for a single day."
+description: "Generates a daily report analyzing the activity logs for a single day, including structured data and a human-friendly markdown summary with progress insights."
 prompt: |
-  You are an AI assistant tasked with generating a daily activity report based on a list of activity logs for a single day. Each log contains:
-  
-  - "group": The activity group (e.g., coding, meeting, research, others). (These are examples; the actual groups come from the activity logs.)
-  - "timestamp": The start time in the format YYYY-MM-DD HH:mm:ss.SSS.
-  - "duration_minutes": The duration of the activity in whole minutes.
-  - "description": A brief description of the activity.
-  
-  Your task is to analyze these logs and produce a report in JSON format with the following structure:
-  
-  BEGIN_JSON
+  You are an AI assistant tasked with generating a daily activity report from a set of activity logs. Each activity log includes:
+  - "group": the specific group (e.g., "ActivityReports project", "Paper Reading: Transformer-XX").
+  - "timestamp": the start time in the format YYYY-MM-DD HH:mm:ss.SSS.
+  - "duration_minutes": the duration in whole minutes.
+  - "description": a brief description of the activity.
+
+  The current categories and their groups are:
+  {categories_json}
+
+  For each activity, determine its category based on the group. If a group does not match any provided category, assign it to "others".
+
+  Your output must be valid JSON with the following structure:
   {
     "executive_summary": {
-      "total_time": <total_minutes>,
-      "time_by_group": {
-        "coding": <minutes>,
-        "meeting": <minutes>,
-        "research": <minutes>,
-        "others": <minutes>
-      },
-      "key_insights": "A concise summary highlighting the main observations of the day."
+      "total_time": "<total_minutes>",
+      "time_by_group": {},
+      "progress_report": "A narrative summary of the main work done and achievements reached today."
     },
     "details": [
-      // The original array of activity logs
-    ]
+      {
+        "category": "string",
+        "group": "string",
+        "timestamp": "YYYY-MM-DD HH:mm:ss.SSS",
+        "duration_minutes": 0,
+        "description": "string"
+      }
+    ],
+    "markdown_report": "A markdown formatted summary of the report, including key insights, totals, and progress."
   }
-  END_JSON
+
+  Use the activity logs provided below to compute the total time and breakdown. Do not use default values.
   
   If no activity logs are found, return:
-  
-  BEGIN_JSON
   {
     "executive_summary": {},
-    "details": []
+    "details": [],
+    "markdown_report": "No activity logs found."
   }
-  END_JSON
-activity_groups: [coding, meeting, research, others]

@@ -1,0 +1,39 @@
+.reports-page {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .report-content {
+    background-color: #f5f5f5;
+    padding: 20px;
+    border-radius: 4px;
+  }
+  
+  .executive-summary,
+  .details {
+    margin-bottom: 20px;
+  }
+  
+  .time-by-group ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .details ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .details li {
+    padding: 10px;
+    margin-bottom: 5px;
+    background-color: white;
+    border-radius: 4px;
+  }

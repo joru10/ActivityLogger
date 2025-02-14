@@ -1,31 +1,47 @@
 name: "ActivityReports_Annual"
-description: "Generates an annual report by consolidating quarterly reports for the year. No detailed appendix is included."
+description: "Generates an annual report by consolidating quarterly report objects, summarizing the year's total activity, trends by category, and progress achieved."
 prompt: |
-  You are an AI assistant tasked with generating an annual activity report. You are provided with an array of quarterly report objects (each following the quarterly report structure).
+  You are an AI assistant tasked with generating an annual activity report from an array of quarterly report objects. Each quarterly report object includes:
   
-  Your task is to produce an annual report in JSON format with the following structure:
+  - "executive_summary": with fields such as "total_time", "time_by_group", and "key_insights" (or "progress_report").
+  - "raw_data": an array of quarterly details.
+  - "markdown_report": a markdown summary for the quarter.
+  
+  Your task is to consolidate this data into a single annual report with the following JSON structure:
   
   BEGIN_JSON
   {
     "executive_summary": {
-      "total_time": <total_minutes_for_year>,
+      "total_time": "<total_minutes_for_year>",
       "time_by_group": {
-        "coding": <minutes>,
-        "meeting": <minutes>,
-        "research": <minutes>,
-        "others": <minutes>
+        "Coding": "<minutes>",
+        "Training": "<minutes>",
+        "Research": "<minutes>",
+        "Business": "<minutes>",
+        "Work&Finance": "<minutes>",
+        "others": "<minutes>"
       },
       "quarterly_breakdown": {
-        "Q1": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Q2": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Q3": { "total_time": <minutes>, "time_by_group": { ... } },
-        "Q4": { "total_time": <minutes>, "time_by_group": { ... } }
+        "Q1": { "total_time": "<minutes>", "time_by_group": { ... } },
+        "Q2": { "total_time": "<minutes>", "time_by_group": { ... } },
+        "Q3": { "total_time": "<minutes>", "time_by_group": { ... } },
+        "Q4": { "total_time": "<minutes>", "time_by_group": { ... } }
       },
-      "key_insights": "A brief narrative summarizing major trends and performance for the year."
+      "progress_report": "A narrative summary of the key trends, major achievements, and progress made over the year."
     },
-    "raw_data": <the original array of quarterly report objects>
+    "raw_data": "<the original array of quarterly report objects>",
+    "markdown_report": "A markdown formatted summary of the annual report, including key insights, trends, and progress."
   }
   END_JSON
   
-  If no quarterly reports are provided, return an object with empty fields.
+  If no quarterly reports are available for the year, return:
+  
+  BEGIN_JSON
+  {
+    "executive_summary": {},
+    "raw_data": [],
+    "markdown_report": "No quarterly reports available for this year."
+  }
+  END_JSON
+  
 activity_groups: [coding, meeting, research, others]

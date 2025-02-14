@@ -1,56 +1,83 @@
-// src/ReportsPage.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import './ReportsPage.css';
 
 const ReportsPage = () => {
   const [dateStr, setDateStr] = useState('');
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // On component mount, set default date and fetch report.
   useEffect(() => {
     const today = new Date();
-    // Use 'en-CA' to ensure the date is formatted as YYYY-MM-DD.
-    const formatted = today.toLocaleDateString('en-CA');
+    const formatted = today.toISOString().split('T')[0];
     setDateStr(formatted);
     fetchReport(formatted);
   }, []);
 
-  useEffect(() => {
-    console.log("Fetching report for date:", dateStr);
-  }, [dateStr]);
-
   const fetchReport = async (dateValue) => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get('http://localhost:8000/api/daily-report', {
+      console.log("Fetching report for date:", dateValue);
+      const response = await axios.get('http://localhost:8000/api/reports/daily-report', {
         params: { date: dateValue }
       });
-      console.log("Fetched report:", response.data);
-      setReport(response.data);
+      
+      if (response.data.error) {
+        setError(response.data.error);
+        setReport(null);
+      } else if (response.data.message?.includes("No report")) {
+        setError("No report found for this date");
+        setReport(null);
+      } else if (response.data.report) {
+        setReport(response.data.report);
+      } else {
+        setReport(response.data);
+      }
     } catch (error) {
       console.error("Error fetching report:", error);
+      setError(error.message);
       setReport(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleDateChange = (e) => {
-    setDateStr(e.target.value);
+  const handleDateChange = (event) => {
+    const newDate = event.target.value;
+    setDateStr(newDate);
+    fetchReport(newDate);
   };
 
-  const handleFetchClick = () => {
-    if (dateStr) {
-      fetchReport(dateStr);
+  const handleForceGenerate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post('http://localhost:8000/api/reports/force-daily-report', null, {
+        params: { date: dateStr }
+      });       
+      if (response.data.report) {
+        setReport(response.data.report);
+      } else {
+        await fetchReport(dateStr);
+      }
+    } catch (error) {
+      console.error("Error forcing report generation:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="reports-page" style={{ padding: '20px' }}>
       <h1>Daily Report</h1>
-      <div style={{ marginBottom: '20px' }}>
+      
+      <div className="controls" style={{ marginBottom: '20px' }}>
         <label>
-          Report Date (YYYY-MM-DD):{' '}
+          Report Date:{' '}
           <input 
             type="date" 
             value={dateStr} 
@@ -58,31 +85,67 @@ const ReportsPage = () => {
             style={{ marginLeft: '10px' }} 
           />
         </label>
-        <button onClick={handleFetchClick} style={{ marginLeft: '10px' }}>
-          Fetch Report
+        <button 
+          onClick={() => fetchReport(dateStr)} 
+          style={{ marginLeft: '10px' }}
+          disabled={loading}
+        >
+          Refresh Report
+        </button>
+        <button 
+          onClick={handleForceGenerate} 
+          style={{ marginLeft: '10px' }}
+          disabled={loading}
+        >
+          Force Generate Report
         </button>
       </div>
-      {loading ? (
-        <p>Loading report...</p>
-      ) : report && report.executive_summary ? (
-        <div>
-          <h2>Executive Summary</h2>
-          <pre>{JSON.stringify(report.executive_summary, null, 2)}</pre>
-          {report.details && report.details.length > 0 && (
-            <>
-              <h3>Details</h3>
-              <pre>{JSON.stringify(report.details, null, 2)}</pre>
-            </>
-          )}
-          {report.raw_data && (
-            <>
-              <h3>Raw Data</h3>
-              <pre>{JSON.stringify(report.raw_data, null, 2)}</pre>
-            </>
-          )}
+      
+      {loading && <p>Loading report...</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      
+      {!loading && !error && report && (
+        <div className="report-content">
+          <div className="executive-summary">
+            <h2>Executive Summary</h2>
+            <p><strong>Total Time:</strong> {report.executive_summary?.total_time} minutes</p>
+            {report.executive_summary?.time_by_group && (
+              <div className="time-by-group">
+                <h3>Time by Group</h3>
+                <ul>
+                  {Object.entries(report.executive_summary.time_by_group).map(([group, minutes]) => (
+                    <li key={group}>{group}: {minutes} minutes</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {report.executive_summary?.progress_report && (
+              <div className="progress-report">
+                <h3>Progress</h3>
+                <p>{report.executive_summary.progress_report}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="details">
+            <h2>Details</h2>
+            {report.details?.length > 0 ? (
+              <ul>
+                {report.details.map((activity, index) => (
+                  <li key={`activity-${index}`}>
+                    <strong>Category:</strong> {activity.category || 'others'}{' | '}
+                    <strong>Group:</strong> {activity.group}{' | '}
+                    <strong>Description:</strong> {activity.description}{' | '}
+                    <strong>Timestamp:</strong> {activity.timestamp}{' | '}
+                    <strong>Duration:</strong> {activity.duration_minutes} minutes
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No details available.</p>
+            )}
+          </div>
         </div>
-      ) : (
-        <p>No report available for this date.</p>
       )}
     </div>
   );

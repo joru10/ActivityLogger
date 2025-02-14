@@ -4,8 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from recording import router as recording_router
 from api import router as api_router  # Import the router from api.py
-from reports_api import router as reports_router
-import reports  # This will run the code in reports.py, starting the scheduler.
+from reports import router as reports_router
+import reports  
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -23,9 +23,21 @@ app.add_middleware(
 )
 
 # Include the recording router
-app.include_router(recording_router, prefix="/api/recording")
-app.include_router(api_router, prefix="/api")
-app.include_router(reports_router, prefix="/api")  
+app.include_router(recording_router, prefix="/api/recording", tags=["recording"])
+app.include_router(api_router, prefix="/api", tags=["api"])
+app.include_router(reports_router, prefix="/api/reports", tags=["reports"])  
+
+@app.get("/debug/routes", tags=["debug"])
+async def debug_routes():
+    """List all registered routes"""
+    routes = []
+    for route in app.routes:
+        routes.append({
+            "path": route.path,
+            "name": route.name,
+            "methods": route.methods
+        })
+    return {"routes": routes}
 
 @app.get("/")
 async def root():
@@ -34,3 +46,4 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    

@@ -1,0 +1,22 @@
+# Import component requirements
+-r requirements-base.txt
+-r backend/requirements.txt
+-r frontend/requirements.txt
+
+# Development Tools
+black==24.1.1
+pylint==3.0.2
+pytest==8.3.4
+pytest-asyncio==0.25.3
+
+# Debug Tools
+ipython==8.12.0
+debugpy==1.8.0
+
+# Documentation
+pdoc3==0.10.0
+mkdocs==1.5.3
+
+# Code Quality
+flake8==7.0.0
+mypy==1.8.0

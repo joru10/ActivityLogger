@@ -10,48 +10,48 @@
   },
   "details": [
     {
-      "duration_minutes": 30,
-      "id": 4,
+      "timestamp": "2025-02-12 18:00:00",
       "description": "Listening to a training from HagiFace",
       "group": "research",
-      "timestamp": "2025-02-12 18:00:00"
+      "duration_minutes": 30,
+      "id": 4
     },
     {
-      "duration_minutes": 30,
-      "id": 5,
+      "timestamp": "2025-02-12 18:30:00",
       "description": "Debugging client application software development",
       "group": "coding",
-      "timestamp": "2025-02-12 18:30:00"
+      "duration_minutes": 30,
+      "id": 5
     },
     {
-      "duration_minutes": 15,
-      "id": 6,
+      "timestamp": "2025-02-12 21:19:59.368000",
       "description": "Engaging in a conversation and ending recording",
       "group": "others",
-      "timestamp": "2025-02-12 21:19:59.368000"
+      "duration_minutes": 15,
+      "id": 6
     }
   ],
   "raw_data": [
     {
-      "duration_minutes": 30,
-      "id": 4,
+      "timestamp": "2025-02-12 18:00:00",
       "description": "Listening to a training from HagiFace",
       "group": "research",
-      "timestamp": "2025-02-12 18:00:00"
+      "duration_minutes": 30,
+      "id": 4
     },
     {
-      "duration_minutes": 30,
-      "id": 5,
+      "timestamp": "2025-02-12 18:30:00",
       "description": "Debugging client application software development",
       "group": "coding",
-      "timestamp": "2025-02-12 18:30:00"
+      "duration_minutes": 30,
+      "id": 5
     },
     {
-      "duration_minutes": 15,
-      "id": 6,
+      "timestamp": "2025-02-12 21:19:59.368000",
       "description": "Engaging in a conversation and ending recording",
       "group": "others",
-      "timestamp": "2025-02-12 21:19:59.368000"
+      "duration_minutes": 15,
+      "id": 6
     }
   ]
 }
