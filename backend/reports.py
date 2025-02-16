@@ -9,9 +9,8 @@ from fastapi import APIRouter, Query, HTTPException
 import httpx
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 # Setup reports directory
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -64,16 +63,21 @@ async def call_llm_api(prompt: str) -> dict:
         }
         
         logger.info(f"Calling LMStudio with model: {settings.lmstudioModel}")
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             try:
-                response = await client.post(url, json=payload, headers=headers)
-                if response.status_code != 200:
-                    raise ValueError(f"LLM API error: {response.text}")
-                
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                return extract_json_from_response(content)
-                
+                try:
+
+                    response = await client.post(url, json=payload, headers=headers)
+                    if response.status_code != 200:
+                        raise ValueError(f"LLM API error: {response.text}")
+                    
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+                    return extract_json_from_response(content)
+                except Exception as e:
+                    logger.error(f"An error occurred: {e}")
+
+                    
             except httpx.ReadTimeout:
                 logger.error("LLM API timeout - try loading the model first")
                 raise ValueError("LLM API timeout - ensure model is ready")
@@ -100,8 +104,12 @@ def load_report_profile(profile_name: str) -> str:
     return prompt_template.replace("{categories_json}", categories_str)
 
 async def generate_daily_report_for_date(report_date, logs_data):
+    profile_prompt = load_report_profile('ActivityReports_Daily')
+
+
     """Generates a daily report from actual logs using LLM."""
     logger.info(f"Generating report for {report_date} with {len(logs_data)} logs")
+    logger.info("Entering generate_daily_report_for_date")
     
     if not logs_data:
         logger.warning("No activities found for this date")
@@ -120,45 +128,36 @@ async def generate_daily_report_for_date(report_date, logs_data):
         total_time = sum(log["duration_minutes"] for log in logs_data)
         time_by_group = {}
         for log in logs_data:
-            group = log["group"]
+            group = log.get("group", "Other")  # Provide a default value
             duration = log["duration_minutes"]
             time_by_group[group] = time_by_group.get(group, 0) + duration
 
         # Prepare prompt for LLM
-        prompt = f"""Analyze these activities and generate a report:
-        Date: {report_date}
-        Total Time: {total_time} minutes
-        Time by Group: {json.dumps(time_by_group, indent=2)}
-        Activities: {json.dumps(logs_data, indent=2)}
-
-        Generate a valid JSON response with this structure:
-        {{
-            "executive_summary": {{
-                "total_time": {total_time},
-                "time_by_group": {json.dumps(time_by_group)},
-                "progress_report": "Detailed analysis of progress"
-            }},
-            "details": [],
-            "markdown_report": "Markdown formatted report"
-        }}
-        """
-        
+        logs_json = json.dumps(logs_data, indent=2)
+        prompt = f"{profile_prompt}\n\nReport Date: {report_date}\nTotal Time: {total_time}\nTime by Group: {json.dumps(time_by_group, indent=2)}\nActivities:\n{logs_json}"
+        logger.info(f"Prompt being sent to LLM: {prompt}")
         logger.info("Calling LLM API...")
         llm_response = await call_llm_api(prompt)
         logger.info("LLM response received")
+        logger.info(f"LLM response: {llm_response}")
         
         # Validate and return LLM response
-        if isinstance(llm_response, dict):
-            required_fields = ['executive_summary', 'details', 'markdown_report']
-            if all(field in llm_response for field in required_fields):
-                logger.info("Valid LLM response received")
-                return llm_response
-        
-        logger.error("Invalid LLM response structure")
-        raise ValueError("Invalid LLM response structure")
+        try:
+            if isinstance(llm_response, dict):
+                required_fields = ['executive_summary', 'details', 'markdown_report']
+                if all(field in llm_response for field in required_fields):
+                    logger.info("Valid LLM response received")
+                    return llm_response
+            
+            logger.error("Invalid LLM response structure")
+            raise ValueError("Invalid LLM response structure")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Error parsing or validating LLM response: {e}")
+            raise
 
     except Exception as e:
         logger.error(f"Error in report generation: {str(e)}")
+        logger.info(f"Exception details: {e}")
         logger.warning("Falling back to basic report structure")
         return {
             "executive_summary": {
@@ -175,6 +174,7 @@ async def generate_daily_report_for_date(report_date, logs_data):
 @router.post("/force-daily-report")
 async def force_daily_report(date_str: str = Query(..., alias="date")):
     """Force generates a report for a specific date using actual DB data."""
+    logger.info(f"Entering force_daily_report with date: {date_str}")
     try:
         report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         logger.info(f"Force generating report for date: {report_date}")

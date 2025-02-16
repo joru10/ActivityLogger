@@ -1,0 +1,6 @@
+flowchart TD
+    A[User opens SettingsPage]
+    A --> B[GET /api/settings retrieves current settings]
+    B --> C[User updates notification interval, categories, and groups]
+    C --> D[PUT /api/settings saves updated settings in DB]
+    D --> E[Updated settings are used in future report generation]

@@ -1,5 +1,7 @@
 # backend/main.py
 import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from recording import router as recording_router
@@ -10,6 +12,7 @@ import reports
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+logger.info(f"Python version: {sys.version}")
 
 app = FastAPI(title="ActivityLogger API")
 

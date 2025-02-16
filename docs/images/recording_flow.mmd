@@ -1,0 +1,6 @@
+flowchart TD
+    A[User starts recording] --> B[Audio captured via Web Audio API]
+    B --> C[Audio file saved in /storage/YYYY-MM-DD/]
+    C --> D[Transcription using OpenAI Whisper]
+    D --> E[Transcript processed and activity extracted]
+    E --> F[ActivityLog created and inserted into SQLite DB]

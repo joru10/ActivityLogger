@@ -1,0 +1,25 @@
+{
+  "executive_summary": {
+    "total_time": 130,
+    "time_by_group": {
+      "coding": 90,
+      "others": 40
+    },
+    "progress_report": "Basic report generated from 2 activities."
+  },
+  "details": [
+    {
+      "group": "coding",
+      "timestamp": "2025-02-16T08:00:00",
+      "duration_minutes": 90,
+      "description": "Debugging the activity report application"
+    },
+    {
+      "group": "others",
+      "timestamp": "2025-02-16T09:30:00",
+      "duration_minutes": 40,
+      "description": "Watching news and getting up to date with AI developments"
+    }
+  ],
+  "markdown_report": "# Daily Report\n\n**Total Time:** 130 minutes\n\n**Time by Group:**\n- coding: 90 minutes\n- others: 40 minutes"
+}

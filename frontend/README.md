@@ -1,70 +1,115 @@
-# Getting Started with Create React App
+# ActivityLogger Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React-based frontend for ActivityLogger application.
 
-## Available Scripts
+## Components
 
-In the project directory, you can run:
+### Pages
+- `RecordingPage`: Audio capture and activity logging
+- `ReportsPage`: View and generate activity reports
+- `SettingsPage`: Configure categories and preferences
 
-### `npm start`
+### Features
+- Web Audio API for voice recording
+- Real-time activity logging
+- Report visualization with Markdown support
+- Dynamic settings management
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Development
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Local Setup
+```bash
+# Install dependencies
+npm install
 
-### `npm test`
+# Start development server
+npm start
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Available Scripts
+```bash
+# Run development server
+npm start
 
-### `npm run build`
+# Run tests
+npm test
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Create production build
+npm run build
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Analyze bundle size
+npm run analyze
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Environment Configuration
+```bash
+# .env.development
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_ENABLE_DEBUG=true
 
-### `npm run eject`
+# .env.production
+REACT_APP_API_URL=http://your-production-api
+REACT_APP_ENABLE_DEBUG=false
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Project Structure
+```
+frontend/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Main page components
+│   ├── hooks/         # Custom React hooks
+│   ├── utils/         # Helper functions
+│   ├── api/           # API client functions
+│   └── App.js         # Root component
+├── public/            # Static assets
+└── package.json       # Project configuration
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Building for Production
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+# Create optimized production build
+npm run build
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+# Test production build locally
+npx serve -s build
+```
+
+## Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Generate coverage report
+npm test -- --coverage
+```
+
+## Troubleshooting
+
+### Common Issues
+1. Port 3000 already in use:
+```bash
+# Find process using port 3000
+lsof -i :3000
+# Kill process
+kill -9 <PID>
+```
+
+2. Node modules issues:
+```bash
+# Clean install
+rm -rf node_modules
+rm package-lock.json
+npm install
+```
 
 ## Learn More
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started)
+- [React documentation](https://reactjs.org/)
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)

@@ -1,0 +1,56 @@
+{
+  "executive_summary": {
+    "total_time": "435",
+    "time_by_group": {
+      "coding": "270",
+      "research": "150",
+      "others": "15"
+    },
+    "progress_report": "Today, a significant amount of time was dedicated to coding activities with a total duration of 270 minutes. Research tasks accounted for another 150 minutes focused on watching videos and reviewing news about AI. Additionally, 15 minutes were spent on other miscellaneous activities related to AI."
+  },
+  "details": [
+    {
+      "category": "Coding",
+      "group": "ActivityReports project",
+      "timestamp": "2025-02-15T14:30:00",
+      "duration_minutes": 120,
+      "description": "Working on activity reports, coding and debugging of the application"
+    },
+    {
+      "category": "Research",
+      "group": "Video: New Architecture",
+      "timestamp": "2025-02-15T16:30:00",
+      "duration_minutes": 120,
+      "description": "Research activities including watching videos and reviewing news about AI"
+    },
+    {
+      "category": "Coding",
+      "group": "ActivityReports project",
+      "timestamp": "2025-02-15T14:30:00",
+      "duration_minutes": 60,
+      "description": "Debugging the Activity Report web application"
+    },
+    {
+      "category": "others",
+      "group": "others",
+      "timestamp": "2025-02-15T15:30:00.001000",
+      "duration_minutes": 15,
+      "description": "Watching videos about AI news"
+    },
+    {
+      "category": "Coding",
+      "group": "ActivityReports project",
+      "timestamp": "2025-02-15T14:30:00",
+      "duration_minutes": 90,
+      "description": "Activity report software coding debugging"
+    },
+    {
+      "category": "Research",
+      "group": "Video: New Architecture",
+      "timestamp": "2025-02-15T16:00:00",
+      "duration_minutes": 30,
+      "description": "Listening to AA news and research information"
+    }
+  ],
+  "markdown_report": "**Daily Activity Report Summary**\n\n**Total Time Spent:** 435 minutes\n\n**Time Breakdown by Group:**\n- Coding: 270 minutes\n- Research: 150 minutes\n- Others: 15 minutes\n\n### Progress Overview:\nToday, a substantial focus was placed on coding tasks with a total of 270 minutes dedicated to these activities. Research activities comprised another significant portion at 150 minutes, primarily involving video reviews and news analysis related to AI. Additionally, 15 minutes were spent on other AI-related engagements.\n\n**Detailed Activities:**\n- **Coding (ActivityReports project):** \n  - *2025-02-15T14:30:00* - Working on activity reports, coding and debugging of the application (120 mins)\n  - *2025-02-15T14:30:00* - Debugging the Activity Report web application (60 mins)\n  - *2025-02-15T14:30:00* - Activity report software coding debugging (90 mins)\n\n- **Research (Video: New Architecture):**\n  - *2025-02-15T16:30:00* - Research activities including watching videos and reviewing news about AI (120 mins)\n  - *2025-02-15T16:00:00* - Listening to AA news and research information (30 mins)\n\n- **Others:**\n  - *2025-02-15T15:30:00.001000* - Watching videos about AI news (15 mins)"
+}

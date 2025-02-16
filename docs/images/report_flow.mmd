@@ -1,0 +1,11 @@
+flowchart TD
+    A["User triggers Force Generate Report"] --> B["Backend POST /api/force-daily-report"]
+    B --> C["Query ActivityLog from SQLite"]
+    C --> D["Aggregate logs & compute totals"]
+    D --> E["Load YAML profile"]
+    E --> F["Inject categories"]
+    F --> G["Create LLM prompt"]
+    G --> H["Send to LLM endpoint"]
+    H --> I["Process LLM response"]
+    I --> J["Save report as JSON"]
+    J --> K["Return to frontend"]
