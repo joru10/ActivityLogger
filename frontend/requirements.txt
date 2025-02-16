@@ -22,3 +22,7 @@ networkx==3.4.2
 sympy==1.13.1
 mpmath==1.3.0
 more-itertools==10.6.0
+# Added npm dependencies for FontAwesome icons:
+# @fortawesome/fontawesome-svg-core
+# @fortawesome/free-solid-svg-icons
+# @fortawesome/react-fontawesome

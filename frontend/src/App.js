@@ -1,5 +1,7 @@
 // src/App.js
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React from 'react';
+import { faMicrophone, faCalendar, faCog, faChartBar } from '@fortawesome/free-solid-svg-icons';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Recorder from './Recorder';
 import CalendarPage from './CalendarPage';
@@ -13,10 +15,10 @@ function AppContent() {
       <NotificationManager /> {/* Include the notification manager */}
       <nav style={{ padding: '10px', backgroundColor: '#eee' }}>
         <ul style={{ listStyle: 'none', display: 'flex', gap: '20px', margin: 0, padding: 0 }}>
-          <li><Link to="/">Recording</Link></li>
-          <li><Link to="/calendar">Calendar</Link></li>
-          <li><Link to="/settings">Settings</Link></li>
-          <li><Link to="/reports">Reports</Link></li>
+          <li><Link to="/" title="Recording"><span><FontAwesomeIcon icon={faMicrophone} /></span></Link></li>
+          <li><Link to="/calendar" title="Calendar"><span><FontAwesomeIcon icon={faCalendar} /></span></Link></li>
+          <li><Link to="/reports" title="Reports"><span><FontAwesomeIcon icon={faChartBar} /></span></Link></li>
+          <li><Link to="/settings" title="Settings"><span><FontAwesomeIcon icon={faCog} /></span></Link></li>
         </ul>
       </nav>
       <Routes>
@@ -37,4 +39,5 @@ function App() {
   );
 }
 
+export { App };
 export default App;

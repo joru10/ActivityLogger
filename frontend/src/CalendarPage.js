@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import './CalendarPage.css';
 import axios from 'axios';
 
 const CalendarPage = () => {
@@ -56,24 +57,24 @@ const CalendarPage = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Activity Logs Calendar</h1>
+      <h1>Activity-Logs</h1>
       <Calendar onChange={setSelectedDate} value={selectedDate} />
       <h2>Activity Logs for {selectedDate.toLocaleDateString()}</h2>
       {sortedLogs.length > 0 ? (
-        <table border="1" cellPadding="8" cellSpacing="0" style={{ width: "100%", textAlign: "left", marginTop: '20px' }}>
+        <table className="log-table">
           <thead>
             <tr>
-              <th style={{ cursor: 'pointer' }} onClick={() => handleHeaderClick('timestamp')}>
-                Timestamp {sortColumn === 'timestamp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              <th onClick={() => handleHeaderClick('timestamp')}>
+                Timestamp
               </th>
-              <th style={{ cursor: 'pointer' }} onClick={() => handleHeaderClick('group')}>
-                Group {sortColumn === 'group' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              <th onClick={() => handleHeaderClick('group')}>
+                Group
               </th>
-              <th style={{ cursor: 'pointer' }} onClick={() => handleHeaderClick('duration_minutes')}>
-                Duration (min) {sortColumn === 'duration_minutes' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              <th onClick={() => handleHeaderClick('duration_minutes')}>
+                Duration
               </th>
-              <th style={{ cursor: 'pointer' }} onClick={() => handleHeaderClick('description')}>
-                Description {sortColumn === 'description' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              <th onClick={() => handleHeaderClick('description')}>
+                Description
               </th>
             </tr>
           </thead>

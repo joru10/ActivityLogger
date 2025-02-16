@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import ReactMarkdown from 'react-markdown';
 import './ReportsPage.css';
 
 const ReportsPage = () => {
-  const [dateStr, setDateStr] = useState('');
+  
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const today = new Date();
-    const formatted = today.toISOString().split('T')[0];
-    setDateStr(formatted);
-    fetchReport(formatted);
-  }, []);
+    fetchReport(selectedDate.toLocaleDateString('en-CA'));
+  }, [selectedDate]);
 
   const fetchReport = async (dateValue) => {
     setLoading(true);
@@ -45,10 +45,9 @@ const ReportsPage = () => {
     }
   };
 
-  const handleDateChange = (event) => {
-    const newDate = event.target.value;
-    setDateStr(newDate);
-    fetchReport(newDate);
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
+    fetchReport(newDate.toLocaleDateString('en-CA'));
   };
 
   const handleForceGenerate = async () => {
@@ -56,12 +55,12 @@ const ReportsPage = () => {
     setError(null);
     try {
       const response = await axios.post('http://localhost:8000/api/reports/force-daily-report', null, {
-        params: { date: dateStr }
+        params: { date: selectedDate.toLocaleDateString('en-CA') }
       });       
       if (response.data.report) {
         setReport(response.data.report);
       } else {
-        await fetchReport(dateStr);
+        await fetchReport(selectedDate.toLocaleDateString('en-CA'));
       }
     } catch (error) {
       console.error("Error forcing report generation:", error);
@@ -78,22 +77,17 @@ const ReportsPage = () => {
       <div className="controls" style={{ marginBottom: '20px' }}>
         <label>
           Report Date:{' '}
-          <input 
-            type="date" 
-            value={dateStr} 
-            onChange={handleDateChange} 
-            style={{ marginLeft: '10px' }} 
-          />
+          <Calendar onChange={handleDateChange} value={selectedDate} />
         </label>
         <button 
-          onClick={() => fetchReport(dateStr)} 
+          onClick={() => fetchReport(selectedDate.toLocaleDateString('en-CA'))} 
           style={{ marginLeft: '10px' }}
           disabled={loading}
         >
           Refresh Report
         </button>
         <button 
-          onClick={handleForceGenerate} 
+          onClick={handleForceGenerate}
           style={{ marginLeft: '10px' }}
           disabled={loading}
         >

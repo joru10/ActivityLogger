@@ -1,0 +1,1 @@
+ Okay, so we are recording here any activity, so we've been for the last 30 minutes debugging the Activity Report Recorder application. And I'm very interested in knowing what is the actual time that is actually set for this, because right now is 10.6. Let's see what it writes.
