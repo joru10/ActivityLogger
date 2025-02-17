@@ -6,7 +6,6 @@ import ReactMarkdown from 'react-markdown';
 import './ReportsPage.css';
 
 const ReportsPage = () => {
-  
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +23,15 @@ const ReportsPage = () => {
       const response = await axios.get('http://localhost:8000/api/reports/daily-report', {
         params: { date: dateValue }
       });
+      console.log("Raw response data:", response.data);
       
+      // Debug: log the keys of the report object received
+      if (response.data.report) {
+        console.log("Report keys:", Object.keys(response.data.report));
+      } else {
+        console.log("Response data (no report key):", response.data);
+      }
+
       if (response.data.error) {
         setError(response.data.error);
         setReport(null);
@@ -56,7 +63,8 @@ const ReportsPage = () => {
     try {
       const response = await axios.post('http://localhost:8000/api/reports/force-daily-report', null, {
         params: { date: selectedDate.toLocaleDateString('en-CA') }
-      });       
+      });
+      console.log("Force generate response:", response.data);
       if (response.data.report) {
         setReport(response.data.report);
       } else {
@@ -65,10 +73,18 @@ const ReportsPage = () => {
     } catch (error) {
       console.error("Error forcing report generation:", error);
       setError(error.message);
+      setReport(null);
     } finally {
       setLoading(false);
     }
   };
+
+  // Debug: log the current report object before rendering
+  useEffect(() => {
+    if (report) {
+      console.log("Current report object:", report);
+    }
+  }, [report]);
 
   return (
     <div className="reports-page" style={{ padding: '20px' }}>
@@ -102,22 +118,37 @@ const ReportsPage = () => {
         <div className="report-content">
           <div className="executive-summary">
             <h2>Executive Summary</h2>
-            <p><strong>Total Time:</strong> {report.executive_summary?.total_time} minutes</p>
-            {report.executive_summary?.time_by_group && (
-              <div className="time-by-group">
-                <h3>Time by Group</h3>
-                <ul>
-                  {Object.entries(report.executive_summary.time_by_group).map(([group, minutes]) => (
-                    <li key={group}>{group}: {minutes} minutes</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {report.executive_summary?.progress_report && (
-              <div className="progress-report">
-                <h3>Progress</h3>
-                <p>{report.executive_summary.progress_report}</p>
-              </div>
+            {report.executive_summary ? (
+              <>
+                <p>
+                  <strong>Total Time:</strong> {report.executive_summary.total_time} minutes
+                </p>
+                {report.executive_summary.summary && (
+                  <div className="time-by-category-group">
+                    <h3>Time by Category/Group</h3>
+                    <ul>
+                      {Object.entries(report.executive_summary.summary).map(([category, groups]) => (
+                        <div key={category}>
+                          <h4>{category}</h4>
+                          <ul>
+                            {Object.entries(groups).map(([group, minutes]) => (
+                              <li key={group}>{group}: {minutes} minutes</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {report.executive_summary.progress_report && (
+                  <div className="progress-report">
+                    <h3>Progress</h3>
+                    <p>{report.executive_summary.progress_report}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p>Executive summary not available.</p>
             )}
           </div>
 
@@ -138,6 +169,11 @@ const ReportsPage = () => {
             ) : (
               <p>No details available.</p>
             )}
+          </div>
+          
+          <div className="markdown-report">
+            <h2>Markdown Report</h2>
+            <ReactMarkdown>{report.markdown_report}</ReactMarkdown>
           </div>
         </div>
       )}

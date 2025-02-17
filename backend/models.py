@@ -61,6 +61,7 @@ class ActivityLog(Base):
     __tablename__ = "activity_logs"
     id = Column(Integer, primary_key=True, index=True)
     group = Column(String, index=True)
+    category = Column(String, index=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     duration_minutes = Column(Integer)
     description = Column(String)
@@ -136,6 +137,11 @@ class Settings(Base):
     def notification_interval(self, value):
         logger.info(f"Setting notification interval to: {value}")
         self.notificationInterval = int(value)
+
+class Category(Base):
+    __tablename__ = "categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
 
 # Initialize database and tables
 safe_init_database()

@@ -4,9 +4,9 @@ import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from recording import router as recording_router
-from api import router as api_router  # Import the router from api.py
-from reports import router as reports_router
+import recording
+import api  # Import the router from api.py
+import reports
 import reports  
 
 # Configure logging
@@ -23,12 +23,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"] 
 )
 
 # Include the recording router
-app.include_router(recording_router, prefix="/api/recording", tags=["recording"])
-app.include_router(api_router, prefix="/api", tags=["api"])
-app.include_router(reports_router, prefix="/api/reports", tags=["reports"])  
+app.include_router(recording.router, prefix="/api/recording", tags=["recording"])
+app.include_router(api.router, prefix="/api", tags=["api"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])  
 
 @app.get("/debug/routes", tags=["debug"])
 async def debug_routes():

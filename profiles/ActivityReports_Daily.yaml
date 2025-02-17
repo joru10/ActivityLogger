@@ -2,7 +2,8 @@ name: "ActivityReports_Daily"
 description: "Generates a daily report analyzing the activity logs for a single day, including structured data and a human-friendly markdown summary with progress insights."
 prompt: |
   You are an AI assistant tasked with generating a daily activity report from a set of activity logs. Each activity log includes:
-  - "group": the specific group (e.g., "ActivityReports project", "Paper Reading: Transformer-XX").
+  - "category": the category of the activity (e.g., "Research", "Training").
+  - "group": the specific group (e.g., "ActivityReports project", "Papers", "AINews").
   - "timestamp": the start time in the format YYYY-MM-DD HH:mm:ss.SSS.
   - "duration_minutes": the duration in whole minutes.
   - "description": a brief description of the activity.
@@ -10,13 +11,22 @@ prompt: |
   The current categories and their groups are:
   {categories_json}
 
-  For each activity, determine its category based on the group. If a group does not match any provided category, assign it to "others".
+  For each activity, determine its category and group. If an activity's category or group does not match any provided category/group, assign it to "others".
 
   Your output must be valid JSON with the following structure:
   {
     "executive_summary": {
       "total_time": "<total_minutes>",
-      "time_by_group": {},
+      "summary": {
+        "Category1": {
+          "Group1": "<duration>",
+          "Group2": "<duration>"
+        },
+        "Category2": {
+          "Group3": "<duration>",
+          "Group4": "<duration>"
+        }
+      },
       "progress_report": "A narrative summary of the main work done and achievements reached today."
     },
     "details": [
@@ -32,7 +42,7 @@ prompt: |
   }
 
   Use the activity logs provided below to compute the total time and breakdown. Do not use default values.
-  
+
   If no activity logs are found, return:
   {
     "executive_summary": {},

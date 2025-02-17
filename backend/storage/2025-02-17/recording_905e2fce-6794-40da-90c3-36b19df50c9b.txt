@@ -1,0 +1,1 @@
+ Okay, so we're testing this again, so we are doing recording, see if we can store the proper data. In this case, I've been doing AI news re-listening for about an hour this morning, and I've been also doing a lot of debugging on the Activity Reports application for about 90 minutes now.

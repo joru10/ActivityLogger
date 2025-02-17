@@ -1,0 +1,73 @@
+{
+  "executive_summary": {
+    "total_time": "480",
+    "summary": {
+      "Coding": {
+        "ActivityReports project": "60"
+      },
+      "Work&Finance": {
+        "Unemployment": "30",
+        "Pensions-related": "30"
+      },
+      "Research": {
+        "AINews": "60"
+      },
+      "others": {
+        "others": "270"
+      }
+    },
+    "progress_report": "Today, significant progress was made in debugging the activity report application, accounting for 180 minutes. An additional 60 minutes were spent on reviewing A&A news and watching AI news videos. Understanding unemployment and pension review each took 30 minutes. Overall, 480 minutes were dedicated to various activities."
+  },
+  "details": [
+    {
+      "category": "others",
+      "group": "others",
+      "timestamp": "2025-02-17T14:30:00",
+      "duration_minutes": 180,
+      "description": "Working on debugging the activity report application"
+    },
+    {
+      "category": "others",
+      "group": "others",
+      "timestamp": "2025-02-17T14:09:32.610000",
+      "duration_minutes": 60,
+      "description": "Working on A&A news review"
+    },
+    {
+      "category": "Research",
+      "group": "AINews",
+      "timestamp": "2025-02-17T10:00:00",
+      "duration_minutes": 60,
+      "description": "Dummy description testing"
+    },
+    {
+      "category": "Work&Finance",
+      "group": "Unemployment",
+      "timestamp": "2025-02-17T15:30:53.490000",
+      "duration_minutes": 30,
+      "description": "Understanding how unemployment works"
+    },
+    {
+      "category": "Work&Finance",
+      "group": "Pensions-related",
+      "timestamp": "2025-02-17T15:25:37.009000",
+      "duration_minutes": 30,
+      "description": "Reviewing the pension situation"
+    },
+    {
+      "category": "Coding",
+      "group": "ActivityReports project",
+      "timestamp": "2025-02-17T14:30:00",
+      "duration_minutes": 60,
+      "description": "Debugging the Activity Report application"
+    },
+    {
+      "category": "Research",
+      "group": "Videos",
+      "timestamp": "2025-02-17T15:30:00",
+      "duration_minutes": 60,
+      "description": "Watching AI news videos"
+    }
+  ],
+  "markdown_report": "# Daily Activity Report\n\n## Executive Summary\n- **Total Time**: 480 minutes\n- **Categories and Groups**:\n  - Coding:\n    - ActivityReports project: 60 minutes\n  - Work&Finance:\n    - Unemployment: 30 minutes\n    - Pensions-related: 30 minutes\n  - Research:\n    - AINews: 60 minutes\n  - Others:\n    - Others: 270 minutes\n\n## Progress Report\nToday, significant progress was made in debugging the activity report application, accounting for 180 minutes. An additional 60 minutes were spent on reviewing A&A news and watching AI news videos. Understanding unemployment and pension review each took 30 minutes. Overall, 480 minutes were dedicated to various activities."
+}

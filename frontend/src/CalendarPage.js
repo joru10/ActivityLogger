@@ -67,6 +67,9 @@ const CalendarPage = () => {
               <th onClick={() => handleHeaderClick('timestamp')}>
                 Timestamp
               </th>
+              <th onClick={() => handleHeaderClick('category')}>
+              Category
+              </th>
               <th onClick={() => handleHeaderClick('group')}>
                 Group
               </th>
@@ -82,6 +85,7 @@ const CalendarPage = () => {
             {sortedLogs.map((log) => (
               <tr key={log.id}>
                 <td>{new Date(log.timestamp).toLocaleString()}</td>
+                <td>{log.category}</td>
                 <td>{log.group}</td>
                 <td>{log.duration_minutes}</td>
                 <td>{log.description}</td>
