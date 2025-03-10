@@ -1,0 +1,52 @@
+# Database files
+*.db
+*.db.backup
+*.sqlite
+*.sqlite3
+
+# Storage directories (recordings, transcriptions, etc.)
+/storage/
+/backend/storage/
+
+# Reports with personal information
+/reports/
+/backend/reports/
+
+# Backup files
+/backend/backups/
+*.backup
+
+# Environment and virtual environment
+/venv/
+/backend/venv/
+.env
+.env.*
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Log files
+/logs/
+/backend/logs/
+*.log
+
+# Node modules
+node_modules/
