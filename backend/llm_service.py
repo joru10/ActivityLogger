@@ -50,24 +50,54 @@ async def call_llm_api(prompt: str) -> dict:
 
 def extract_json_from_response(response: str) -> dict:
     """Extract and validate JSON from LLM response"""
-    if response.startswith('```'):
-        first_newline = response.find('\n')
-        if first_newline != -1:
-            last_marker = response.rfind('```')
-            if last_marker != -1:
-                response = response[first_newline + 1:last_marker].strip()
+    # Handle markdown code blocks
+    if '```json' in response or '```' in response:
+        # Extract content between code block markers
+        try:
+            if '```json' in response:
+                # Extract content between ```json and ```
+                response = response.split('```json')[-1].split('```')[0].strip()
+            elif response.startswith('```') and response.endswith('```'):
+                # Remove the first and last ``` markers
+                response = response[3:-3].strip()
+            elif '```' in response:
+                # Find the first and last ``` markers
+                first_marker = response.find('```')
+                last_marker = response.rfind('```')
+                if first_marker != -1 and last_marker != -1 and first_marker != last_marker:
+                    # Extract content between the markers
+                    first_newline = response.find('\n', first_marker)
+                    if first_newline != -1:
+                        response = response[first_newline + 1:last_marker].strip()
+        except Exception as e:
+            logger.warning(f"Error extracting JSON from code block: {e}")
     
+    # Try to parse the JSON
     try:
         json_data = json.loads(response)
         validate_response_structure(json_data)
         return json_data
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse JSON: {e}")
+        logger.error(f"Raw response: {response}")
         raise ValueError("Invalid JSON response from LLM")
 
-def validate_response_structure(data: dict) -> None:
+def validate_response_structure(data) -> None:
     """Validate the structure of the LLM response"""
-    required_fields = ['executive_summary', 'details', 'markdown_report']
-    missing_fields = [f for f in required_fields if f not in data]
-    if missing_fields:
-        raise ValueError(f"Missing required fields in LLM response: {missing_fields}")
+    # If it's a list, assume it's a list of activity logs
+    if isinstance(data, list):
+        if len(data) == 0:
+            logger.warning("Empty activity log list returned from LLM")
+        return
+        
+    # If it's a report format with specific fields
+    if isinstance(data, dict):
+        required_fields = ['executive_summary', 'details', 'markdown_report']
+        if any(field in data for field in required_fields):
+            missing_fields = [f for f in required_fields if f not in data]
+            if missing_fields:
+                logger.warning(f"Missing some report fields in LLM response: {missing_fields}")
+        return
+        
+    # If we got here, it's neither a list nor a recognized dict format
+    logger.warning(f"Unexpected response format from LLM: {type(data)}")

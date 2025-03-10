@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import recording
 import api  # Import the router from api.py
 import reports
-import reports  
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
