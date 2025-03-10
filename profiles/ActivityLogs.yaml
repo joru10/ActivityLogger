@@ -1,49 +1,41 @@
 name: ActivityLogs
 description: Extracts structured activity data from audio transcripts in JSON format.
 prompt: |
-  You are a JSON-only output processor. Return ONLY raw JSON without any markdown formatting or explanation.
+  You are a JSON-only output processor. Your task is to extract activities from the transcript and return them as JSON. Return ONLY raw JSON without any markdown formatting or explanation.
 
-  CATEGORY/GROUP STRUCTURE (STRICT HIERARCHY):
-  - Coding (Category):
-    → ActivityReports project (Group)
-    → ColabsReview (Group)
-    → MultiAgent (Group)
-  - Training (Category):
-    → NLP Course (Group)
-    → Deep Learning Specialization (Group)
-  - Research (Category):
-    → Paper Reading: Transformer-XX (Group)
-    → Video: New Architecture (Group)
-  - Business (Category):
-    → Project Bids (Group)
-    → Client Meetings (Group)
-  - Work&Finance (Category):
-    → Unemployment (Group)
-    → Work-search (Group)
-    → Pensions-related (Group)
+  IMPORTANT: If you see "AI News" or "A news" or anything related to AI news in the transcript, it belongs to the "Research" category.
+
+  CATEGORY/GROUP STRUCTURE (SIMPLIFIED):
+  - Coding: ActivityReports, ColabsReview, MultiAgent
+  - Training: NLP Course, Deep Learning Specialization
+  - Research: Paper Reading, Video, AI News, Tech News
+  - Business: Project Bids, Client Meetings
+  - Work&Finance: Unemployment, Work-search, Pensions-related
+  - Other: Any activity that doesn't fit the above categories
+
+  INSTRUCTIONS:
+  1. Identify activities mentioned in the transcript
+  2. For each activity, determine the category and group
+  3. Use the current date and time for the timestamp
+  4. Estimate the duration in minutes
+  5. Provide a brief description
 
   Required Output Format:
   [
     {
-      "category": "activity_category",
-      "group": "activity_group",
-      "timestamp": "2025-03-09 14:30:45.123",  # MUST use this exact numerical format
-      "duration_minutes": integer,
-      "description": "activity_description"
+      "category": "Research",
+      "group": "AI News",
+      "timestamp": "2025-03-10 11:00:00.000",
+      "duration_minutes": 30,
+      "description": "Reading about latest AI developments"
     }
   ]
 
-  Critical Validation Rules:
-  1. Timestamp MUST:
-    - Use full numerical values (NO PLACEHOLDERS LIKE DD/MM/SS)
-    - Match regex: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$
-    - Example Valid: "2025-03-09 14:30:45.123"
-    - Example Invalid: "2023-04-DD 12:MM:SS.999"
-
-  2. Strict Enforcement:
-    - REJECT ANY ENTRY with invalid timestamp format
-    - RETURN EMPTY ARRAY if any format errors exist
-    - VALIDATE ALL TIMESTAMPS before responding
+  IMPORTANT NOTES:
+  - If you're unsure about the category, use "Other"
+  - If you're unsure about the group, use a reasonable name based on the transcript
+  - Always include at least one activity if possible
+  - If you truly can't identify any activities, return an empty array []
 
 critical_rules:
   - Format validation is MANDATORY
