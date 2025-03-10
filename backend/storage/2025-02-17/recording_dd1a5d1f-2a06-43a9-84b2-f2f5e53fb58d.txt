@@ -1,1 +1,0 @@
- Okay, so I've been working on the debugging of the Activity Report application for the past three hours.

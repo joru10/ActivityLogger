@@ -1,1 +1,0 @@
- Okay, so we are reporting activities for the past period and basically the only thing we'll be doing is debugging the activity report application and we spend 30 minutes on that.
