@@ -50,6 +50,30 @@ async def call_llm_api(prompt: str) -> dict:
 
 def extract_json_from_response(response: str) -> dict:
     """Extract and validate JSON from LLM response"""
+    # Handle various thinking/reasoning tags
+    # Define a list of known thinking tags patterns
+    thinking_patterns = [
+        ('<reasoning>', '</reasoning>'),
+        ('<think>', '</think>'),
+        ('<thinking>', '</thinking>'),
+        ('<rationale>', '</rationale>'),
+        ('<analysis>', '</analysis>'),
+        ('<reflection>', '</reflection>'),
+        ('<thought>', '</thought>'),
+        ('<internal>', '</internal>'),
+        ('<deliberation>', '</deliberation>')
+    ]
+    
+    # Check for and remove content within thinking tags
+    for start_tag, end_tag in thinking_patterns:
+        if start_tag in response and end_tag in response:
+            logger.info(f"Detected {start_tag} tags in LLM response, removing this section")
+            try:
+                # Extract content after the end tag
+                response = response.split(end_tag)[-1].strip()
+            except Exception as e:
+                logger.warning(f"Error removing {start_tag} section: {e}")
+    
     # Handle markdown code blocks
     if '```json' in response or '```' in response:
         # Extract content between code block markers
@@ -70,7 +94,17 @@ def extract_json_from_response(response: str) -> dict:
                     if first_newline != -1:
                         response = response[first_newline + 1:last_marker].strip()
         except Exception as e:
-            logger.warning(f"Error extracting JSON from code block: {e}")
+            logger.warning(f"Error extracting JSON from code blocks: {e}")
+    
+    # Remove various trailing content markers
+    trailing_markers = ['<sep>', '<end>', '<eos>', '<stop>']
+    for marker in trailing_markers:
+        if marker in response:
+            logger.info(f"Detected {marker} tag in LLM response, removing trailing content")
+            try:
+                response = response.split(marker)[0].strip()
+            except Exception as e:
+                logger.warning(f"Error removing {marker} section: {e}")
     
     # Try to parse the JSON
     try:
