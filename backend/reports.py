@@ -20,6 +20,12 @@ from report_templates import generate_html_report
 # Import model classes from report_templates
 from report_templates import DailyTimeBreakdown, ChartData
 
+# Import report utilities
+from report_utils import ensure_html_report
+
+# Import the weekly report fix
+from weekly_report_fix import generate_weekly_report_html
+
 class WeeklyReportExecutiveSummary(BaseModel):
     total_time: int
     time_by_group: dict[str, int]
@@ -42,7 +48,7 @@ class AnnualReport(BaseModel):
     html_report: str = ""  # HTML version with embedded charts
 
 # Add json2csv directory to path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'json2csv'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 from json2csv.json2csv import JSON2CSV
 
 # Setup logging
@@ -635,6 +641,10 @@ async def get_weekly_report(date: str):
             logger.info(f"Report data keys: {list(report_data.keys() if isinstance(report_data, dict) else [])}")
             logger.info(f"HTML report present: {'html_report' in report_data if isinstance(report_data, dict) else False}")
             
+            # Check if html_report is empty or missing
+            if isinstance(report_data, dict) and ('html_report' not in report_data or not report_data.get('html_report')):
+                logger.warning("HTML report is missing or empty in the generated report")
+            
             # Save the successful report
             report_path = os.path.join(WEEKLY_REPORTS_DIR, report_filename)
             with open(report_path, 'w') as f:
@@ -723,6 +733,16 @@ async def get_weekly_report(date: str):
                 html_report=html_report
             )
             
+            # Log the HTML report length
+            logger.info(f"Generated weekly HTML report with length: {len(html_report) if html_report else 0}")
+            
+            # Ensure the HTML report is not empty
+            if not html_report or len(html_report) < 100:  # If HTML is empty or too small
+                logger.warning("Weekly HTML report is empty or too small, generating placeholder")
+                title = f"Weekly Activity Report - {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+                from report_utils import generate_placeholder_html
+                basic_report.html_report = generate_placeholder_html(f"weekly_report_{start_date}_to_{end_date}.json", "Weekly")
+            
             # Save the fallback report
             report_path = os.path.join(WEEKLY_REPORTS_DIR, report_filename)
             with open(report_path, 'w') as f:
@@ -754,6 +774,409 @@ async def debug_reports():
     except Exception as e:
         return {"error": str(e)}
     
+@router.get("/monthly-report")
+async def get_monthly_report(date: str = Query(...)):
+    """Get the monthly report for the month containing the specified date."""
+    try:
+        # Log starting debug info
+        logger.info(f"Starting monthly report generation for date: {date}")
+        
+        # Parse the date string to a date object
+        try:
+            year, month, day = map(int, date.split('-'))
+            logger.info(f"Parsed date components: year={year}, month={month}, day={day}")
+            # Import the date class explicitly to avoid name conflicts
+            from datetime import date as date_class
+            target_date = date_class(year, month, day)
+            logger.info(f"Created target_date: {target_date}")
+        except Exception as e:
+            logger.error(f"Error parsing date: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid date format. Please use YYYY-MM-DD format. Error: {str(e)}")
+        
+        # Calculate the first day of the month
+        first_day = date_class(year, month, 1)
+        
+        # Calculate the last day of the month
+        if month == 12:
+            last_day = date_class(year, month, 31)
+        else:
+            next_month = date_class(year, month + 1, 1)
+            last_day = next_month - timedelta(days=1)
+        
+        logger.info(f"Month range: {first_day} to {last_day}")
+        
+        # Create the directory for monthly reports if it doesn't exist
+        if not os.path.exists(MONTHLY_REPORTS_DIR):
+            os.makedirs(MONTHLY_REPORTS_DIR, exist_ok=True)
+            logger.info(f"Created monthly reports directory at {MONTHLY_REPORTS_DIR}")
+        
+        # Check for an existing report first
+        month_name = first_day.strftime('%B')
+        report_filename = f"monthly_report_{year}_{month_name}.json"
+        report_path = os.path.join(MONTHLY_REPORTS_DIR, report_filename)
+        logger.info(f"Looking for existing report at: {report_path}")
+        
+        if os.path.exists(report_path):
+            logger.info("Found existing report, loading it")
+            try:
+                with open(report_path, 'r') as f:
+                    report_data = json.load(f)
+                # Validate the loaded report using Pydantic
+                report = MonthlyReport(**report_data)
+                logger.info("Successfully loaded and validated existing report")
+                return report.model_dump()
+            except Exception as e:
+                logger.error(f"Error loading existing report: {e}")
+                # If there's an error loading the existing report, return a 404
+                raise HTTPException(status_code=404, detail=f"Error loading monthly report: {str(e)}")
+        else:
+            # Report doesn't exist, generate a new one
+            logger.info(f"No monthly report found for {month_name} {year}, generating a new one")
+            
+            # Get activity logs for the month
+            db = SessionLocal()
+            start_datetime = datetime.combine(first_day, time.min)
+            end_datetime = datetime.combine(last_day, time.max)
+            
+            try:
+                logs = db.query(ActivityLog).filter(
+                    and_(
+                        ActivityLog.timestamp >= start_datetime,
+                        ActivityLog.timestamp <= end_datetime
+                    )
+                ).all()
+                
+                # Convert logs to the format expected by the report generator
+                logs_data = [{
+                    "group": log.group,
+                    "category": log.category,
+                    "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                    "duration_minutes": log.duration_minutes,
+                    "description": log.description
+                } for log in logs]
+                
+                if logs_data:
+                    # Generate the monthly report using the report_templates module
+                    from report_templates import generate_html_report
+                    
+                    # Create chart data and time breakdown for the month
+                    chart_data = ChartData()
+                    daily_breakdown = {}
+                    
+                    # Process logs to create time breakdowns by day
+                    for log in logs_data:
+                        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S.%f").date().strftime("%Y-%m-%d")
+                        if log_date not in daily_breakdown:
+                            daily_breakdown[log_date] = DailyTimeBreakdown(total_time=0, time_by_group={}, time_by_category={})
+                        
+                        # Update daily breakdown
+                        daily_time = daily_breakdown[log_date]
+                        daily_time.total_time += log["duration_minutes"]
+                        
+                        # Update group time
+                        if log["group"] not in daily_time.time_by_group:
+                            daily_time.time_by_group[log["group"]] = 0
+                        daily_time.time_by_group[log["group"]] += log["duration_minutes"]
+                        
+                        # Update category time
+                        if log["category"] not in daily_time.time_by_category:
+                            daily_time.time_by_category[log["category"]] = 0
+                        daily_time.time_by_category[log["category"]] += log["duration_minutes"]
+                        
+                        # Update chart data
+                        chart_data.add_activity(log)
+                    
+                    # Generate the HTML report
+                    title = f"Monthly Activity Report - {month_name} {year}"
+                    html_report = generate_html_report(title, first_day, last_day, logs_data, chart_data, daily_breakdown)
+                    
+                    # Create the monthly report object
+                    report = MonthlyReport(html_report=html_report)
+                    
+                    # Save the report
+                    with open(report_path, 'w') as f:
+                        json.dump(report.model_dump(), f, indent=2)
+                    
+                    logger.info(f"Monthly report saved to {report_path}")
+                    return report.model_dump()
+                else:
+                    logger.warning(f"No activity logs found for {month_name} {year}")
+                    raise HTTPException(status_code=404, detail=f"No activity logs found for {month_name} {year}")
+            finally:
+                db.close()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_monthly_report: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/quarterly-report")
+async def get_quarterly_report(date: str = Query(...)):
+    """Get the quarterly report for the quarter containing the specified date."""
+    try:
+        # Log starting debug info
+        logger.info(f"Starting quarterly report generation for date: {date}")
+        
+        # Parse the date string to a date object
+        try:
+            year, month, day = map(int, date.split('-'))
+            logger.info(f"Parsed date components: year={year}, month={month}, day={day}")
+            # Import the date class explicitly to avoid name conflicts
+            from datetime import date as date_class
+            target_date = date_class(year, month, day)
+            logger.info(f"Created target_date: {target_date}")
+        except Exception as e:
+            logger.error(f"Error parsing date: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid date format. Please use YYYY-MM-DD format. Error: {str(e)}")
+        
+        # Determine the quarter
+        quarter = (month - 1) // 3 + 1
+        
+        # Calculate the first day of the quarter
+        first_month = (quarter - 1) * 3 + 1
+        first_day = date_class(year, first_month, 1)
+        
+        # Calculate the last day of the quarter
+        if quarter == 4:
+            last_day = date_class(year, 12, 31)
+        else:
+            next_quarter_first_month = quarter * 3 + 1
+            next_quarter_first_day = date_class(year, next_quarter_first_month, 1)
+            last_day = next_quarter_first_day - timedelta(days=1)
+        
+        logger.info(f"Quarter range: {first_day} to {last_day}")
+        
+        # Create the directory for quarterly reports if it doesn't exist
+        if not os.path.exists(QUARTERLY_REPORTS_DIR):
+            os.makedirs(QUARTERLY_REPORTS_DIR, exist_ok=True)
+            logger.info(f"Created quarterly reports directory at {QUARTERLY_REPORTS_DIR}")
+        
+        # Check for an existing report first
+        report_filename = f"quarterly_report_Q{quarter}_{year}.json"
+        report_path = os.path.join(QUARTERLY_REPORTS_DIR, report_filename)
+        logger.info(f"Looking for existing report at: {report_path}")
+        
+        if os.path.exists(report_path):
+            logger.info("Found existing report, loading it")
+            try:
+                with open(report_path, 'r') as f:
+                    report_data = json.load(f)
+                # Validate the loaded report using Pydantic
+                report = QuarterlyReport(**report_data)
+                logger.info("Successfully loaded and validated existing report")
+                return report.model_dump()
+            except Exception as e:
+                logger.error(f"Error loading existing report: {e}")
+                # If there's an error loading the existing report, return a 404
+                raise HTTPException(status_code=404, detail=f"Error loading quarterly report: {str(e)}")
+        else:
+            # Report doesn't exist, generate a new one
+            logger.info(f"No quarterly report found for Q{quarter} {year}, generating a new one")
+            
+            # Get activity logs for the quarter
+            db = SessionLocal()
+            start_datetime = datetime.combine(first_day, time.min)
+            end_datetime = datetime.combine(last_day, time.max)
+            
+            try:
+                logs = db.query(ActivityLog).filter(
+                    and_(
+                        ActivityLog.timestamp >= start_datetime,
+                        ActivityLog.timestamp <= end_datetime
+                    )
+                ).all()
+                
+                # Convert logs to the format expected by the report generator
+                logs_data = [{
+                    "group": log.group,
+                    "category": log.category,
+                    "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                    "duration_minutes": log.duration_minutes,
+                    "description": log.description
+                } for log in logs]
+                
+                if logs_data:
+                    # Generate the quarterly report using the report_templates module
+                    from report_templates import generate_html_report
+                    
+                    # Create chart data and time breakdown for the quarter
+                    chart_data = ChartData()
+                    daily_breakdown = {}
+                    
+                    # Process logs to create time breakdowns by day
+                    for log in logs_data:
+                        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S.%f").date().strftime("%Y-%m-%d")
+                        if log_date not in daily_breakdown:
+                            daily_breakdown[log_date] = DailyTimeBreakdown(total_time=0, time_by_group={}, time_by_category={})
+                        
+                        # Update daily breakdown
+                        daily_time = daily_breakdown[log_date]
+                        daily_time.total_time += log["duration_minutes"]
+                        
+                        # Update group time
+                        if log["group"] not in daily_time.time_by_group:
+                            daily_time.time_by_group[log["group"]] = 0
+                        daily_time.time_by_group[log["group"]] += log["duration_minutes"]
+                        
+                        # Update category time
+                        if log["category"] not in daily_time.time_by_category:
+                            daily_time.time_by_category[log["category"]] = 0
+                        daily_time.time_by_category[log["category"]] += log["duration_minutes"]
+                        
+                        # Update chart data
+                        chart_data.add_activity(log)
+                    
+                    # Generate the HTML report
+                    title = f"Quarterly Activity Report - Q{quarter} {year}"
+                    html_report = generate_html_report(title, first_day, last_day, logs_data, chart_data, daily_breakdown)
+                    
+                    # Create the quarterly report object
+                    report = QuarterlyReport(html_report=html_report)
+                    
+                    # Save the report
+                    with open(report_path, 'w') as f:
+                        json.dump(report.model_dump(), f, indent=2)
+                    
+                    logger.info(f"Quarterly report saved to {report_path}")
+                    return report.model_dump()
+                else:
+                    logger.warning(f"No activity logs found for Q{quarter} {year}")
+                    raise HTTPException(status_code=404, detail=f"No activity logs found for Q{quarter} {year}")
+            finally:
+                db.close()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_quarterly_report: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/annual-report")
+async def get_annual_report(date: str = Query(...)):
+    """Get the annual report for the year specified in the date."""
+    try:
+        # Log starting debug info
+        logger.info(f"Starting annual report generation for date: {date}")
+        
+        # Parse the date string to a date object
+        try:
+            year, month, day = map(int, date.split('-'))
+            logger.info(f"Parsed date components: year={year}, month={month}, day={day}")
+        except Exception as e:
+            logger.error(f"Error parsing date: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid date format. Please use YYYY-MM-DD format. Error: {str(e)}")
+        
+        # Create the directory for annual reports if it doesn't exist
+        if not os.path.exists(ANNUAL_REPORTS_DIR):
+            os.makedirs(ANNUAL_REPORTS_DIR, exist_ok=True)
+            logger.info(f"Created annual reports directory at {ANNUAL_REPORTS_DIR}")
+        
+        # Check for an existing report first
+        report_filename = f"annual_report_{year}.json"
+        report_path = os.path.join(ANNUAL_REPORTS_DIR, report_filename)
+        logger.info(f"Looking for existing report at: {report_path}")
+        
+        if os.path.exists(report_path):
+            logger.info("Found existing report, loading it")
+            try:
+                with open(report_path, 'r') as f:
+                    report_data = json.load(f)
+                # Validate the loaded report using Pydantic
+                report = AnnualReport(**report_data)
+                logger.info("Successfully loaded and validated existing report")
+                return report.model_dump()
+            except Exception as e:
+                logger.error(f"Error loading existing report: {e}")
+                # If there's an error loading the existing report, return a 404
+                raise HTTPException(status_code=404, detail=f"Error loading annual report: {str(e)}")
+        else:
+            # Report doesn't exist, generate a new one
+            logger.info(f"No annual report found for year {year}, generating a new one")
+            
+            # Calculate the first and last day of the year
+            from datetime import date as date_class
+            first_day = date_class(year, 1, 1)
+            last_day = date_class(year, 12, 31)
+            
+            # Get activity logs for the year
+            db = SessionLocal()
+            start_datetime = datetime.combine(first_day, time.min)
+            end_datetime = datetime.combine(last_day, time.max)
+            
+            try:
+                logs = db.query(ActivityLog).filter(
+                    and_(
+                        ActivityLog.timestamp >= start_datetime,
+                        ActivityLog.timestamp <= end_datetime
+                    )
+                ).all()
+                
+                # Convert logs to the format expected by the report generator
+                logs_data = [{
+                    "group": log.group,
+                    "category": log.category,
+                    "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                    "duration_minutes": log.duration_minutes,
+                    "description": log.description
+                } for log in logs]
+                
+                if logs_data:
+                    # Generate the annual report using the report_templates module
+                    from report_templates import generate_html_report
+                    
+                    # Create chart data and time breakdown for the year
+                    chart_data = ChartData()
+                    daily_breakdown = {}
+                    
+                    # Process logs to create time breakdowns by day
+                    for log in logs_data:
+                        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S.%f").date().strftime("%Y-%m-%d")
+                        if log_date not in daily_breakdown:
+                            daily_breakdown[log_date] = DailyTimeBreakdown(total_time=0, time_by_group={}, time_by_category={})
+                        
+                        # Update daily breakdown
+                        daily_time = daily_breakdown[log_date]
+                        daily_time.total_time += log["duration_minutes"]
+                        
+                        # Update group time
+                        if log["group"] not in daily_time.time_by_group:
+                            daily_time.time_by_group[log["group"]] = 0
+                        daily_time.time_by_group[log["group"]] += log["duration_minutes"]
+                        
+                        # Update category time
+                        if log["category"] not in daily_time.time_by_category:
+                            daily_time.time_by_category[log["category"]] = 0
+                        daily_time.time_by_category[log["category"]] += log["duration_minutes"]
+                        
+                        # Update chart data
+                        chart_data.add_activity(log)
+                    
+                    # Generate the HTML report
+                    title = f"Annual Activity Report - {year}"
+                    html_report = generate_html_report(title, first_day, last_day, logs_data, chart_data, daily_breakdown)
+                    
+                    # Create the annual report object
+                    report = AnnualReport(html_report=html_report)
+                    
+                    # Save the report
+                    with open(report_path, 'w') as f:
+                        json.dump(report.model_dump(), f, indent=2)
+                    
+                    logger.info(f"Annual report saved to {report_path}")
+                    return report.model_dump()
+                else:
+                    logger.warning(f"No activity logs found for year {year}")
+                    raise HTTPException(status_code=404, detail=f"No activity logs found for year {year}")
+            finally:
+                db.close()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_annual_report: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/debug-activities")
 async def debug_activities(date: str = Query(...)):
     """Debug endpoint to check activities in database for a specific date."""

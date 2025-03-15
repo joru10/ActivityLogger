@@ -131,44 +131,153 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
                 }]
             )
         
-        # 2. Group Distribution (Pie Chart)
-        if time_by_group:
-            groups = list(time_by_group.keys())
-            group_times = list(time_by_group.values())
-            
-            # Generate random colors for each group
-            import random
-            colors = [f"rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)" for _ in groups]
-            
-            visualizations["group_distribution"] = ChartData(
-                chart_type="pie",
-                title="Activity Distribution by Group",
-                description="Breakdown of time spent on different activity groups",
-                labels=groups,
-                datasets=[{
-                    "data": group_times,
-                    "backgroundColor": colors,
-                    "borderWidth": 1
-                }]
-            )
-        
-        # 3. Category Distribution (Pie Chart)
-        if time_by_category:
+        # 2. Combined Category-Group Chart (Stacked Bar Chart)
+        if time_by_category and time_by_group:
+            # Get categories and their times
             categories = list(time_by_category.keys())
             category_times = list(time_by_category.values())
             
-            # Generate random colors for each category
-            import random
-            colors = [f"rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)" for _ in categories]
+            # Get settings to understand the category-group relationship
+            import sqlite3
+            try:
+                # Connect to the database
+                conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend', 'activity_logs.db'))
+                cursor = conn.cursor()
+                
+                # Get the categories configuration
+                cursor.execute('SELECT categories FROM settings LIMIT 1')
+                result = cursor.fetchone()
+                if result and result[0]:
+                    categories_config = json.loads(result[0])
+                else:
+                    categories_config = []
+                conn.close()
+            except Exception as e:
+                logger.error(f"Error fetching categories from database: {e}")
+                categories_config = []
             
-            visualizations["category_distribution"] = ChartData(
-                chart_type="pie",
-                title="Activity Distribution by Category",
-                description="Breakdown of time spent on different activity categories",
+            # Create a mapping of groups to their categories
+            group_to_category = {}
+            for cat_config in categories_config:
+                cat_name = cat_config.get('name', '')
+                for group_name in cat_config.get('groups', []):
+                    group_to_category[group_name] = cat_name
+            
+            # Organize groups by category
+            groups_by_category = {}
+            for group, time in time_by_group.items():
+                category = group_to_category.get(group, 'Other')
+                if category not in groups_by_category:
+                    groups_by_category[category] = []
+                groups_by_category[category].append({'name': group, 'time': time})
+            
+            # Generate colors for categories (more distinct colors)
+            import colorsys
+            def get_distinct_colors(n):
+                colors = []
+                for i in range(n):
+                    hue = i / n
+                    saturation = 0.7
+                    value = 0.9
+                    rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+                    rgba = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.7)"
+                    colors.append(rgba)
+                return colors
+            
+            category_colors = get_distinct_colors(len(categories))
+            
+            # Create a stacked bar chart dataset where each group is a separate dataset
+            datasets = []
+            
+            # Get all unique groups across all categories
+            all_groups = set()
+            for groups in groups_by_category.values():
+                for group_info in groups:
+                    all_groups.add(group_info['name'])
+            all_groups = sorted(list(all_groups))
+            
+            # Create a color for each group - using more vibrant colors
+            def get_vibrant_colors(n):
+                colors = []
+                base_colors = [
+                    "rgba(255, 99, 132, 0.7)",   # Red
+                    "rgba(54, 162, 235, 0.7)",  # Blue
+                    "rgba(255, 206, 86, 0.7)",  # Yellow
+                    "rgba(75, 192, 192, 0.7)",  # Teal
+                    "rgba(153, 102, 255, 0.7)", # Purple
+                    "rgba(255, 159, 64, 0.7)",  # Orange
+                    "rgba(46, 204, 113, 0.7)",  # Green
+                    "rgba(142, 68, 173, 0.7)",  # Violet
+                    "rgba(241, 196, 15, 0.7)",  # Amber
+                    "rgba(231, 76, 60, 0.7)",   # Crimson
+                    "rgba(52, 152, 219, 0.7)",  # Dodger Blue
+                    "rgba(155, 89, 182, 0.7)"   # Amethyst
+                ]
+                
+                # Use base colors first
+                for i in range(min(n, len(base_colors))):
+                    colors.append(base_colors[i])
+                
+                # If we need more colors, generate them
+                if n > len(base_colors):
+                    for i in range(len(base_colors), n):
+                        hue = i / n
+                        saturation = 0.85
+                        value = 0.9
+                        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+                        rgba = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.7)"
+                        colors.append(rgba)
+                return colors
+            
+            group_colors = get_vibrant_colors(len(all_groups))
+            group_color_map = {group: color for group, color in zip(all_groups, group_colors)}
+            
+            # For each category, create datasets for each of its groups
+            for category in categories:
+                # Get all groups for this category
+                category_groups = groups_by_category.get(category, [])
+                
+                # Sort groups by time (descending)
+                category_groups.sort(key=lambda x: x['time'], reverse=True)
+                
+                # Add each group as a separate dataset
+                for group_info in category_groups:
+                    group_name = group_info['name']
+                    group_time = group_info['time']
+                    
+                    # Create data array with zeros for all categories except this one
+                    data = [0] * len(categories)
+                    category_index = categories.index(category)
+                    data[category_index] = group_time
+                    
+                    datasets.append({
+                        "label": f"{category} - {group_name}",
+                        "data": data,
+                        "backgroundColor": group_color_map.get(group_name, "rgba(200, 200, 200, 0.7)"),
+                        "borderColor": group_color_map.get(group_name, "rgba(200, 200, 200, 1)").replace('0.7', '1'),
+                        "borderWidth": 1,
+                        "stack": category  # Stack bars by category
+                    })
+            
+            visualizations["category_group_distribution"] = ChartData(
+                chart_type="bar",
+                title="Activity Distribution by Category and Group",
+                description="Breakdown of time spent on different categories and their groups",
+                labels=categories,  # Each category gets its own bar
+                datasets=datasets
+            )
+            
+            # Also create a doughnut chart that shows categories and groups
+            # This provides a hierarchical view with categories as the outer ring
+            # and groups as the inner ring
+            visualizations["category_group_doughnut"] = ChartData(
+                chart_type="doughnut",
+                title="Hierarchical Activity Distribution",
+                description="Breakdown of time spent by category (outer ring) and group (inner ring)",
                 labels=categories,
                 datasets=[{
                     "data": category_times,
-                    "backgroundColor": colors,
+                    "backgroundColor": category_colors,
                     "borderWidth": 1
                 }]
             )
@@ -391,6 +500,76 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
         labels_json = json.dumps(chart_data.labels)
         datasets_json = json.dumps(chart_data.datasets)
         
+        # Configure chart options based on chart type
+        chart_options = {
+            "responsive": True,
+            "maintainAspectRatio": False,
+            "plugins": {
+                "legend": {
+                    "position": "top",
+                    "labels": {
+                        "font": {
+                            "size": 12
+                        }
+                    }
+                },
+                "title": {
+                    "display": True,
+                    "text": chart_data.title,
+                    "font": {
+                        "size": 16
+                    }
+                },
+                "tooltip": {
+                    "enabled": True,
+                    "callbacks": {
+                        "label": "function(context) {\n"
+                                "                const value = context.raw;\n"
+                                "                const hours = Math.floor(value / 60);\n"
+                                "                const minutes = value % 60;\n"
+                                "                return `${context.dataset.label}: ${hours}h ${minutes}m`;\n"
+                                "            }"
+                    }
+                }
+            }
+        }
+        
+        # Add specific options for bar charts
+        if chart_data.chart_type == 'bar':
+            # Check if this is the combined category-group chart
+            is_stacked = any('stack' in dataset for dataset in chart_data.datasets)
+            if is_stacked or chart_id == 'category_group_chart' or chart_id == 'category_group_distribution':
+                chart_options["scales"] = {
+                    "x": {
+                        "stacked": True,
+                        "title": {
+                            "display": True,
+                            "text": "Categories"
+                        }
+                    },
+                    "y": {
+                        "stacked": True,
+                        "title": {
+                            "display": True,
+                            "text": "Minutes"
+                        }
+                    }
+                }
+                
+                # Add better legend configuration for stacked charts
+                chart_options["plugins"]["legend"] = {
+                    "position": "right",
+                    "labels": {
+                        "font": {
+                            "size": 10
+                        },
+                        "boxWidth": 12
+                    }
+                }
+        
+        # Convert options to JSON
+        options_json = json.dumps(chart_options)
+        
         chart_script = f"""
         (function() {{
             const ctx = document.getElementById('{canvas_id}').getContext('2d');
@@ -400,30 +579,7 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
                     labels: {labels_json},
                     datasets: {datasets_json}
                 }},
-                options: {{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {{
-                        legend: {{
-                            position: 'top',
-                            labels: {{
-                                font: {{
-                                    size: 12
-                                }}
-                            }}
-                        }},
-                        title: {{
-                            display: true,
-                            text: '{chart_data.title}',
-                            font: {{
-                                size: 16
-                            }}
-                        }},
-                        tooltip: {{
-                            enabled: true
-                        }}
-                    }}
-                }}
+                options: {options_json}
             }};
             new Chart(ctx, config);
         }})();

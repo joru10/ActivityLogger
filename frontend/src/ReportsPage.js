@@ -48,6 +48,12 @@ const ReportsPage = () => {
       } else if (response.data.report) {
         setReport(response.data.report);
       } else {
+        // Directly handle the response data
+        console.log("Setting report directly from response data");
+        // Check if this is a weekly report with html_report
+        if (reportType === 'weekly' && response.data.html_report) {
+          console.log("Weekly report with html_report detected");
+        }
         setReport(response.data);
       }
     } catch (error) {
@@ -122,6 +128,11 @@ const ReportsPage = () => {
   useEffect(() => {
     if (report) {
       console.log("Current report object:", report);
+      console.log("Report has html_report?", Boolean(report.html_report));
+      console.log("Report has markdown_report?", Boolean(report.markdown_report));
+      if (report.html_report) {
+        console.log("HTML report length:", report.html_report.length);
+      }
     }
   }, [report]);
 
@@ -185,14 +196,93 @@ const ReportsPage = () => {
       
       {!loading && !error && report && (
         <div className="report-content">
-          {report.html_report && (
+          {/* Debug info */}
+          <div style={{ display: 'none' }}>
+            <p>Debug: Report keys: {Object.keys(report).join(', ')}</p>
+            <p>Has html_report: {String(Boolean(report.html_report))}</p>
+          </div>
+          
+          {report.html_report && report.html_report.length > 0 ? (
             <div className="html-report">
               <iframe 
                 srcDoc={report.html_report}
                 className="html-report-content"
                 style={{ width: '100%', height: '800px', border: 'none' }}
                 title={`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`}
+                sandbox="allow-scripts"
               />
+            </div>
+          ) : report.markdown_report ? (
+            <div className="markdown-report">
+              <ReactMarkdown>{report.markdown_report}</ReactMarkdown>
+              
+              {report.executive_summary && (
+                <div className="executive-summary">
+                  <h2>Executive Summary</h2>
+                  <p><strong>Total Time:</strong> {report.executive_summary.total_time} minutes</p>
+                  
+                  {report.executive_summary.time_by_group && (
+                    <div>
+                      <h3>Time by Group</h3>
+                      <ul>
+                        {Object.entries(report.executive_summary.time_by_group).map(([group, time]) => (
+                          <li key={group}><strong>{group}:</strong> {time} minutes</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {report.executive_summary.time_by_category && (
+                    <div>
+                      <h3>Time by Category</h3>
+                      <ul>
+                        {Object.entries(report.executive_summary.time_by_category).map(([category, time]) => (
+                          <li key={category}><strong>{category}:</strong> {time} minutes</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {report.details && report.details.length > 0 && (
+                <div className="details">
+                  <h2>Activity Details</h2>
+                  <table className="activity-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Group</th>
+                        <th>Category</th>
+                        <th>Duration</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.details.map((activity, index) => (
+                        <tr key={index}>
+                          <td>{new Date(activity.timestamp).toLocaleTimeString()}</td>
+                          <td>{activity.group}</td>
+                          <td>{activity.category}</td>
+                          <td>{activity.duration_minutes} min</td>
+                          <td>{activity.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="no-report-content">
+              <p>No report content available. Try generating a report first.</p>
+              {/* If we have a report object but no html_report or markdown_report, show what we do have */}
+              {Object.keys(report).length > 0 && (
+                <div className="debug-report-info">
+                  <p><strong>Available report data:</strong></p>
+                  <pre>{JSON.stringify(report, null, 2)}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>

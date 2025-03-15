@@ -1,6 +1,6 @@
 # backend/recording.py
 import os
-import datetime
+from datetime import datetime, date
 import uuid
 from pathlib import Path
 import logging
@@ -35,12 +35,12 @@ class Activity(BaseModel):
         """Validate that the timestamp is in a proper ISO format"""
         try:
             # Try to parse the timestamp
-            datetime.datetime.fromisoformat(v.split('+')[0].strip())
+            datetime.fromisoformat(v.split('+')[0].strip())
             return v
         except (ValueError, TypeError) as e:
             # If it fails, generate a valid timestamp
             logger.warning(f"Invalid timestamp format '{v}', using current time instead")
-            return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
     @field_validator('duration_minutes')
     @classmethod
@@ -77,7 +77,7 @@ def save_activity_logs(activity_logs: list):
             new_log = ActivityLog(
                 group=record.get("group", "others"),
                 category=record.get("category", "others"),
-                timestamp=datetime.datetime.fromisoformat(record.get("timestamp").split('+')[0].strip()),
+                timestamp=datetime.fromisoformat(record.get("timestamp").split('+')[0].strip()),
                 duration_minutes=record.get("duration_minutes", 15),
                 description=record.get("description", "")
             )
@@ -91,7 +91,7 @@ def save_activity_logs(activity_logs: list):
 
 def get_today_directory() -> Path:
     """Returns a Path object for today's directory, creating it if necessary."""
-    today_str = datetime.date.today().isoformat()
+    today_str = date.today().isoformat()
     day_dir = STORAGE_DIR / today_str
     day_dir.mkdir(parents=True, exist_ok=True)
     return day_dir
@@ -135,7 +135,7 @@ async def stop_recording(
 
     # Get the file's modification time as the recording timestamp.
     file_mod_time = os.path.getmtime(wav_path)
-    file_dt = datetime.datetime.fromtimestamp(file_mod_time)
+    file_dt = datetime.fromtimestamp(file_mod_time)
     formatted_date = file_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # e.g., "2025-02-12 15:41:23.123"
 
     # Transcribe the audio using Whisper (replace simulation with a real transcription)
@@ -221,7 +221,7 @@ def generate_fallback_activity(transcript: str, recording_date: str) -> dict:
     logger.info("Generating fallback activity from transcript")
     
     # Get the current time for the timestamp
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
     # Extract a summary from the transcript (first 50 chars or less)
     description = transcript[:200] + "..." if len(transcript) > 200 else transcript
@@ -262,7 +262,7 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
         default_activity = Activity(
             group="Other",
             category="Other",
-            timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
             duration_minutes=30,
             description="Auto-generated default activity"
         )
@@ -370,7 +370,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                                         basic_activity = {
                                             "group": "Other",
                                             "category": "Other",
-                                            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
                                             "duration_minutes": 30,
                                             "description": "Auto-generated activity from recording"
                                         }
@@ -392,7 +392,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                                             basic_activity = {
                                                 "group": "Other",
                                                 "category": "Other",
-                                                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
                                                 "duration_minutes": 30,
                                                 "description": "Auto-generated activity from recording"
                                             }

@@ -7,11 +7,20 @@ from fastapi.middleware.cors import CORSMiddleware
 import recording
 import api  # Import the router from api.py
 import reports
+import scheduler  # Import the scheduler module
+from scheduler import start_scheduler
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.info(f"Python version: {sys.version}")
+
+# Import report fix middleware to ensure all reports have valid HTML content
+try:
+    import report_fix_middleware
+    logger.info("Report fix middleware loaded successfully")
+except Exception as e:
+    logger.error(f"Error loading report fix middleware: {e}")
 
 app = FastAPI(title="ActivityLogger API")
 
@@ -29,6 +38,7 @@ app.add_middleware(
 app.include_router(recording.router, prefix="/api/recording", tags=["recording"])
 app.include_router(api.router, prefix="/api", tags=["api"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])  
+app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"])
 
 @app.get("/debug/routes", tags=["debug"])
 async def debug_routes():
@@ -46,7 +56,12 @@ async def debug_routes():
 async def root():
     return {"message": "ActivityLogger API is running."}
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting application initialization...")
+    start_scheduler()
+    logger.info("Scheduler started successfully")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-    
