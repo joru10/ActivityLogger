@@ -1,5 +1,5 @@
 import os
-import datetime
+from datetime import datetime
 import json
 import logging
 import atexit
@@ -62,7 +62,7 @@ class ActivityLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     group = Column(String, index=True)
     category = Column(String, index=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.utcnow)
     duration_minutes = Column(Integer)
     description = Column(String)
 
@@ -168,7 +168,7 @@ def init_default_settings():
 def backup_database():
     """Create a timestamped backup of the database"""
     if os.path.exists(DB_PATH):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = os.path.join(BASE_DIR, "backups")
         os.makedirs(backup_dir, exist_ok=True)
         backup_path = os.path.join(backup_dir, f"activity_logs.{timestamp}.db")

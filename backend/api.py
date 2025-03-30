@@ -27,13 +27,19 @@ def get_db():
 # ------------------------------------------
 
 @router.get("/activity-logs", response_model=List[dict])
-def read_activity_logs(date: Optional[datetime] = Query(None), db: Session = Depends(get_db)):
+def read_activity_logs(date: Optional[str] = Query(None), db: Session = Depends(get_db)):
     query = db.query(ActivityLog)
     if date:
-        start_date = datetime(date.year, date.month, date.day)
-        end_date = start_date + timedelta(days=1)
-        query = query.filter(ActivityLog.timestamp >= start_date,
-                             ActivityLog.timestamp < end_date)
+        try:
+            # Parse the date string from the frontend (YYYY-MM-DD)
+            parsed_date = datetime.strptime(date, '%Y-%m-%d')
+            start_date = datetime(parsed_date.year, parsed_date.month, parsed_date.day)
+            end_date = start_date + timedelta(days=1)
+            logger.info(f"Filtering logs between {start_date} and {end_date}")
+            query = query.filter(ActivityLog.timestamp >= start_date,
+                               ActivityLog.timestamp < end_date)
+        except ValueError as e:
+            logger.error(f"Error parsing date parameter: {date}, error: {e}")
     logs = query.all()
     return [
         {k: v for k, v in log.__dict__.items() if k != "_sa_instance_state"}

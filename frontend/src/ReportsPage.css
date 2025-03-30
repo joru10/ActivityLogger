@@ -37,3 +37,129 @@
     background-color: white;
     border-radius: 4px;
   }
+
+  /* HTML Report Styling */
+  .html-report {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .html-report-content {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .html-report h2, .html-report h3, .html-report h4 {
+    color: #333;
+    margin-bottom: 15px;
+  }
+
+  .html-report table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+
+  .html-report th, .html-report td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+
+  .html-report th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+  }
+
+  .html-report canvas {
+    max-width: 100%;
+    height: auto;
+    margin: 15px 0;
+  }
+  
+  /* Markdown Report Styling */
+  .markdown-report {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+  }
+  
+  .markdown-report h1, .markdown-report h2, .markdown-report h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+  }
+  
+  .executive-summary {
+    margin-bottom: 30px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+  }
+  
+  .executive-summary h2 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+  }
+  
+  .executive-summary h3 {
+    color: #34495e;
+    margin: 15px 0 10px;
+  }
+  
+  .executive-summary ul {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  
+  .executive-summary li {
+    padding: 5px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  
+  .details h2 {
+    color: #2c3e50;
+    margin: 25px 0 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+  }
+  
+  .activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 0.9em;
+  }
+  
+  .activity-table th {
+    background-color: #f5f5f5;
+    color: #333;
+    font-weight: bold;
+    text-align: left;
+    padding: 10px;
+    border-bottom: 2px solid #ddd;
+  }
+  
+  .activity-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .activity-table tr:hover {
+    background-color: #f9f9f9;
+  }
+  
+  .no-report-content {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+  }

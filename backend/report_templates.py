@@ -131,46 +131,185 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
                 }]
             )
         
-        # 2. Group Distribution (Pie Chart)
-        if time_by_group:
-            groups = list(time_by_group.keys())
-            group_times = list(time_by_group.values())
+        # 2. Category Distribution Chart (Pie Chart)
+        if time_by_category and time_by_group:
+            # Import os for path operations
+            import os
+            import sqlite3
+            from config import get_categories_json
             
-            # Generate random colors for each group
-            import random
-            colors = [f"rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)" for _ in groups]
+            # Get categories configuration directly from the config function
+            try:
+                categories_json = get_categories_json()
+                categories_config = json.loads(categories_json)
+                logger.info(f"Successfully loaded categories config from get_categories_json()")
+            except Exception as e:
+                logger.error(f"Error loading categories from get_categories_json(): {e}")
+                # Fallback to database if config function fails
+                try:
+                    # Connect to the database
+                    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'activity_logs.db'))
+                    cursor = conn.cursor()
+                    
+                    # Get the categories configuration
+                    cursor.execute('SELECT categories FROM settings LIMIT 1')
+                    result = cursor.fetchone()
+                    if result and result[0]:
+                        categories_config = json.loads(result[0])
+                        logger.info(f"Loaded categories config from database")
+                    else:
+                        categories_config = []
+                        logger.warning("No categories found in database")
+                    conn.close()
+                except Exception as db_e:
+                    logger.error(f"Error fetching categories from database: {db_e}")
+                    categories_config = []
             
-            visualizations["group_distribution"] = ChartData(
-                chart_type="pie",
-                title="Activity Distribution by Group",
-                description="Breakdown of time spent on different activity groups",
-                labels=groups,
-                datasets=[{
-                    "data": group_times,
-                    "backgroundColor": colors,
-                    "borderWidth": 1
-                }]
-            )
-        
-        # 3. Category Distribution (Pie Chart)
-        if time_by_category:
+            # Log the loaded categories configuration for debugging
+            logger.info(f"Categories config: {json.dumps(categories_config)[:500]}...")
+            
+            # Create a mapping of groups to their categories
+            group_to_category = {}
+            for cat_config in categories_config:
+                cat_name = cat_config.get('name', '')
+                for group_name in cat_config.get('groups', []):
+                    group_to_category[group_name] = cat_name
+            
+            # Log the group-to-category mapping
+            logger.info(f"Group to category mapping: {json.dumps(group_to_category)[:500]}...")
+            
+            # Organize groups by category
+            groups_by_category = {}
+            # Reset time_by_category to ensure it's calculated correctly based on the actual group-category relationships
+            recalculated_time_by_category = {}
+            
+            # First, initialize all categories from the config to ensure they all appear in the chart
+            for cat_config in categories_config:
+                cat_name = cat_config.get('name', '')
+                if cat_name:
+                    groups_by_category[cat_name] = []
+                    recalculated_time_by_category[cat_name] = 0
+            
+            # Add an 'Other' category for groups that don't match any configured category
+            if 'Other' not in groups_by_category:
+                groups_by_category['Other'] = []
+                recalculated_time_by_category['Other'] = 0
+            
+            # Process each group and assign it to the correct category
+            for group, time in time_by_group.items():
+                # Get the proper category for this group based on settings
+                category = group_to_category.get(group, 'Other')
+                
+                # Add time to the category total
+                recalculated_time_by_category[category] += time
+                
+                # Add group to its category
+                groups_by_category[category].append({'name': group, 'time': time})
+            
+            # Replace the original time_by_category with the recalculated one
+            time_by_category = recalculated_time_by_category
+            
+            # Get categories and their times for charts
             categories = list(time_by_category.keys())
             category_times = list(time_by_category.values())
             
-            # Generate random colors for each category
-            import random
-            colors = [f"rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)" for _ in categories]
+            # Log the results for debugging
+            logger.info(f"Groups by category: {json.dumps(groups_by_category)[:500]}...")
+            logger.info(f"Recalculated time by category: {json.dumps(time_by_category)}")
+            logger.info(f"Categories: {categories}")
+            logger.info(f"Category times: {category_times}")
             
+            # Generate colors for categories (more distinct colors)
+            import colorsys
+            def get_distinct_colors(n):
+                colors = []
+                for i in range(n):
+                    hue = i / n
+                    saturation = 0.7
+                    value = 0.9
+                    rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+                    rgba = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.7)"
+                    colors.append(rgba)
+                return colors
+            
+            # Create category colors
+            category_colors = {}
+            for i, category in enumerate(categories):
+                hue = i / max(1, len(categories))
+                saturation = 0.8
+                value = 0.9
+                rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+                category_colors[category] = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.7)"
+            
+            # 1. Create Category Distribution Chart (Pie Chart)
             visualizations["category_distribution"] = ChartData(
                 chart_type="pie",
-                title="Activity Distribution by Category",
-                description="Breakdown of time spent on different activity categories",
+                title="Category Distribution",
+                description="Time spent on each category",
                 labels=categories,
                 datasets=[{
+                    "label": "Categories",
                     "data": category_times,
-                    "backgroundColor": colors,
+                    "backgroundColor": list(category_colors.values()),
+                    "borderColor": [color.replace('0.7', '1') for color in category_colors.values()],
                     "borderWidth": 1
                 }]
+            )
+            
+            # 2. Create Category/Group Chart (Stacked Bar Chart)
+            # Prepare data for stacked bar chart - one stack per category, with groups as segments
+            stacked_datasets = []
+            
+            # Process each category to create stacks
+            for category in categories:
+                category_groups = groups_by_category.get(category, [])
+                if not category_groups:
+                    continue
+                    
+                # Sort groups by time (descending)
+                category_groups.sort(key=lambda x: x['time'], reverse=True)
+                
+                # Create data for this category's groups
+                group_names = [group['name'] for group in category_groups]
+                group_times = [group['time'] for group in category_groups]
+                
+                # Generate colors for groups within this category
+                group_colors = []
+                base_color = category_colors[category]
+                base_rgb = tuple(int(x) for x in base_color.replace('rgba(', '').replace(')', '').split(',')[:3])
+                
+                for i in range(len(category_groups)):
+                    # Adjust brightness to create variation within the same hue
+                    brightness = 0.5 + (0.5 * (i / max(1, len(category_groups))))
+                    r = min(255, int(base_rgb[0] * brightness))
+                    g = min(255, int(base_rgb[1] * brightness))
+                    b = min(255, int(base_rgb[2] * brightness))
+                    group_colors.append(f"rgba({r}, {g}, {b}, 0.7)")
+                
+                # Create dataset for this category's groups
+                stacked_datasets.append({
+                    "label": category,
+                    "data": group_times,
+                    "backgroundColor": group_colors,
+                    "borderColor": [color.replace('0.7', '1') for color in group_colors],
+                    "borderWidth": 1,
+                    "stack": "stack1",  # All categories in the same stack
+                    "categoryGroups": group_names  # Store group names for reference
+                })
+            
+            # Get all group names across all categories
+            all_groups = []
+            for category in categories:
+                for group in groups_by_category.get(category, []):
+                    all_groups.append(group['name'])
+            
+            # Create the stacked bar chart visualization
+            visualizations["category_group_chart"] = ChartData(
+                chart_type="bar",
+                title="Categories with Groups Breakdown",
+                description="Time spent on groups within each category",
+                labels=all_groups,  # Use all group names as labels
+                datasets=stacked_datasets
             )
     
     logger.info(f"Created {len(visualizations)} visualizations for the report")
@@ -287,7 +426,9 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
     
     # Generate chart containers and scripts for each visualization
     chart_scripts = []
+    logger.info(f"Generating charts for {len(visualizations)} visualizations: {list(visualizations.keys())}")
     for i, (chart_id, chart_data) in enumerate(visualizations.items()):
+        logger.info(f"Processing visualization {i+1}/{len(visualizations)}: {chart_id}")
         # Create a unique canvas ID for each chart
         canvas_id = f"chart_{chart_id}"
         
@@ -329,19 +470,36 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
                                 </tr>
                 """
         else:
-            # For other charts (group/category distribution)
-            for i, label in enumerate(chart_data.labels):
-                time_value = chart_data.datasets[0]["data"][i]
-                hours = time_value // 60
-                minutes = time_value % 60
-                time_display = f"{hours}h {minutes}m"
-                
-                html += f"""
+            # For category distribution charts
+            if chart_id == "category_distribution":
+                # Use the time_by_category dictionary for accurate values
+                for label in chart_data.labels:
+                    # Get the actual time from time_by_category
+                    time_value = time_by_category.get(label, 0)
+                    hours = time_value // 60
+                    minutes = time_value % 60
+                    time_display = f"{hours}h {minutes}m"
+                    
+                    html += f"""
                                 <tr>
                                     <td>{label}</td>
                                     <td>{time_display}</td>
                                 </tr>
-                """
+                    """
+            else:
+                # For other charts
+                for i, label in enumerate(chart_data.labels):
+                    time_value = chart_data.datasets[0]["data"][i]
+                    hours = time_value // 60
+                    minutes = time_value % 60
+                    time_display = f"{hours}h {minutes}m"
+                    
+                    html += f"""
+                                <tr>
+                                    <td>{label}</td>
+                                    <td>{time_display}</td>
+                                </tr>
+                    """
                 
         html += """
                         </tbody>
@@ -350,39 +508,9 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
             </div>
         """
         
-        # Add data rows for the chart data table
-        if chart_id == "daily_activity":
-            # For daily activity chart, show the time for each day
-            for i, label in enumerate(chart_data.labels):
-                time_value = chart_data.datasets[0]["data"][i]
-                hours = time_value // 60
-                minutes = time_value % 60
-                time_display = f"{hours}h {minutes}m"
-                
-                html += f"""
-                                <tr>
-                                    <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">{label}</td>
-                                    <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">{time_display}</td>
-                                </tr>
-                """
-        else:
-            # For other charts (group/category distribution)
-            for i, label in enumerate(chart_data.labels):
-                time_value = chart_data.datasets[0]["data"][i]
-                hours = time_value // 60
-                minutes = time_value % 60
-                time_display = f"{hours}h {minutes}m"
-                
-                html += f"""
-                                <tr>
-                                    <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">{label}</td>
-                                    <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">{time_display}</td>
-                                </tr>
-                """
-                
+        # End of chart container
         html += """
-                        </tbody>
-                    </table>
+                    </div>
                 </div>
             </div>
         """
@@ -390,6 +518,82 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
         # Prepare chart script with more detailed configuration
         labels_json = json.dumps(chart_data.labels)
         datasets_json = json.dumps(chart_data.datasets)
+        
+        # Configure chart options based on chart type
+        chart_options = {
+            "responsive": True,
+            "maintainAspectRatio": False,
+            "plugins": {
+                "legend": {
+                    "position": "top",
+                    "labels": {
+                        "font": {
+                            "size": 12
+                        }
+                    }
+                },
+                "title": {
+                    "display": True,
+                    "text": chart_data.title,
+                    "font": {
+                        "size": 16
+                    }
+                },
+                "tooltip": {
+                    "enabled": True,
+                    "callbacks": {
+                        "label": "function(context) {\n"
+                                "                const value = context.raw;\n"
+                                "                const hours = Math.floor(value / 60);\n"
+                                "                const minutes = value % 60;\n"
+                                "                return `${context.dataset.label}: ${hours}h ${minutes}m`;\n"
+                                "            }"
+                    }
+                }
+            }
+        }
+        
+        # Log chart configuration for debugging
+        logger.info(f"Configuring chart {canvas_id} of type {chart_data.chart_type}")
+        
+        # Add specific options for bar charts
+        if chart_data.chart_type == 'bar':
+            # Check if this is the combined category-group chart
+            is_stacked = any('stack' in dataset for dataset in chart_data.datasets)
+            logger.info(f"Chart {chart_id} is_stacked: {is_stacked}")
+            
+            # Always treat category_group_chart as a stacked chart
+            if is_stacked or chart_id == 'category_group_chart':
+                chart_options["scales"] = {
+                    "x": {
+                        "stacked": True,
+                        "title": {
+                            "display": True,
+                            "text": "Categories"
+                        }
+                    },
+                    "y": {
+                        "stacked": True,
+                        "title": {
+                            "display": True,
+                            "text": "Minutes"
+                        }
+                    }
+                }
+                
+                # Add better legend configuration for stacked charts
+                chart_options["plugins"]["legend"] = {
+                    "position": "right",
+                    "labels": {
+                        "font": {
+                            "size": 10
+                        },
+                        "boxWidth": 12
+                    }
+                }
+        
+        # Convert options to JSON
+        options_json = json.dumps(chart_options)
         
         chart_script = f"""
         (function() {{
@@ -400,30 +604,7 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
                     labels: {labels_json},
                     datasets: {datasets_json}
                 }},
-                options: {{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {{
-                        legend: {{
-                            position: 'top',
-                            labels: {{
-                                font: {{
-                                    size: 12
-                                }}
-                            }}
-                        }},
-                        title: {{
-                            display: true,
-                            text: '{chart_data.title}',
-                            font: {{
-                                size: 16
-                            }}
-                        }},
-                        tooltip: {{
-                            enabled: true
-                        }}
-                    }}
-                }}
+                options: {options_json}
             }};
             new Chart(ctx, config);
         }})();
@@ -445,7 +626,14 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
     # Sort days chronologically
     sorted_days = sorted(daily_breakdown.keys())
     
+    # Format day strings for better display
     for day in sorted_days:
+        try:
+            day_date = date.fromisoformat(day)
+            day_formatted = day_date.strftime("%A, %B %d, %Y")
+        except ValueError:
+            day_formatted = day
+            
         day_data = daily_breakdown[day]
         day_hours = day_data.total_time // 60
         day_minutes = day_data.total_time % 60
@@ -466,7 +654,7 @@ def generate_html_report(start_date: date, end_date: date, total_time: int, time
         
         html += f"""
             <div class="daily-item">
-                <h3>{day}</h3>
+                <h3>{day_formatted}</h3>
                 <p><strong>Total Time:</strong> {day_time_display}</p>
                 
                 <div style="display: flex; flex-wrap: wrap;">

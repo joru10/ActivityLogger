@@ -1,6 +1,6 @@
 # backend/recording.py
 import os
-import datetime
+from datetime import datetime, date
 import uuid
 from pathlib import Path
 import logging
@@ -12,7 +12,7 @@ from typing import List
 import yaml
 from models import SessionLocal, ActivityLog, Settings
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from llm_service import call_llm_api  # Now actually used below
+from llm_service import call_llm_api, extract_json_from_response  # Import both functions
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -35,12 +35,12 @@ class Activity(BaseModel):
         """Validate that the timestamp is in a proper ISO format"""
         try:
             # Try to parse the timestamp
-            datetime.datetime.fromisoformat(v.split('+')[0].strip())
+            datetime.fromisoformat(v.split('+')[0].strip())
             return v
         except (ValueError, TypeError) as e:
             # If it fails, generate a valid timestamp
             logger.warning(f"Invalid timestamp format '{v}', using current time instead")
-            return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
     @field_validator('duration_minutes')
     @classmethod
@@ -77,7 +77,7 @@ def save_activity_logs(activity_logs: list):
             new_log = ActivityLog(
                 group=record.get("group", "others"),
                 category=record.get("category", "others"),
-                timestamp=datetime.datetime.fromisoformat(record.get("timestamp").split('+')[0].strip()),
+                timestamp=datetime.fromisoformat(record.get("timestamp").split('+')[0].strip()),
                 duration_minutes=record.get("duration_minutes", 15),
                 description=record.get("description", "")
             )
@@ -91,7 +91,7 @@ def save_activity_logs(activity_logs: list):
 
 def get_today_directory() -> Path:
     """Returns a Path object for today's directory, creating it if necessary."""
-    today_str = datetime.date.today().isoformat()
+    today_str = date.today().isoformat()
     day_dir = STORAGE_DIR / today_str
     day_dir.mkdir(parents=True, exist_ok=True)
     return day_dir
@@ -135,7 +135,7 @@ async def stop_recording(
 
     # Get the file's modification time as the recording timestamp.
     file_mod_time = os.path.getmtime(wav_path)
-    file_dt = datetime.datetime.fromtimestamp(file_mod_time)
+    file_dt = datetime.fromtimestamp(file_mod_time)
     formatted_date = file_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # e.g., "2025-02-12 15:41:23.123"
 
     # Transcribe the audio using Whisper (replace simulation with a real transcription)
@@ -221,7 +221,7 @@ def generate_fallback_activity(transcript: str, recording_date: str) -> dict:
     logger.info("Generating fallback activity from transcript")
     
     # Get the current time for the timestamp
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
     # Extract a summary from the transcript (first 50 chars or less)
     description = transcript[:200] + "..." if len(transcript) > 200 else transcript
@@ -262,7 +262,7 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
         default_activity = Activity(
             group="Other",
             category="Other",
-            timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
             duration_minutes=30,
             description="Auto-generated default activity"
         )
@@ -271,7 +271,10 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
     return activities
 
 async def process_transcript_with_llm(transcript: str, recording_date: str, profile_prompt: str) -> dict:
+    """Process transcript with LLM to generate activity logs with improved error handling"""
     logger.info("Processing transcript with LLM provider using ActivityLogs profile")
+    logger.info(f"Transcript length: {len(transcript)} characters")
+    logger.info(f"Recording date: {recording_date}")
 
     # Create a new session
     with SessionLocal() as db:
@@ -280,43 +283,41 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
             logger.error("No settings found; cannot retrieve categories.")
             return {"error": "No settings configured"}
 
+        # Validate LLM settings
+        if not settings.lmstudioEndpoint:
+            logger.error("LLM Studio endpoint not configured in settings")
+            return {"error": "LLM Studio endpoint not configured"}
+
         # Get categories as JSON string from settings
         categories = settings.get_categories() or []
+        logger.info(f"Found {len(categories)} categories in settings")
+
+        # Format categories for better readability in the prompt
+        categories_text = ""
+        for cat in categories:
+            categories_text += f"- {cat['name']}:\n"
+            for group in cat.get('groups', []):
+                categories_text += f"  * {group}\n"
 
         # Construct the full prompt with recording date, categories, and transcript
-        full_prompt = (
-            f"{profile_prompt}\n\n"
-            "AVAILABLE CATEGORY/GROUP STRUCTURE:\n"
-            "\n".join(
-                f"- {cat['name']}:\n  " + 
-                "\n  ".join(f"* {group}" for group in cat.get('groups', []))
-                for cat in categories
-            ) + "\n\n"
-            f"Recording Date: {recording_date}\n"
-            "INSTRUCTIONS:\n"
-            "1. Match activities to EXACT group names under their categories\n"
-            "2. Use ONLY the provided group names\n\n"
-            f"Transcript:\n{transcript}"
-        )
+        full_prompt = f"{profile_prompt}\n\n"
+        full_prompt += "AVAILABLE CATEGORY/GROUP STRUCTURE:\n"
+        full_prompt += categories_text
+        full_prompt += f"\nRecording Date: {recording_date}\n"
+        full_prompt += "INSTRUCTIONS:\n"
+        full_prompt += "1. Match activities to EXACT group names under their categories\n"
+        full_prompt += "2. Use ONLY the provided group names\n"
+        full_prompt += "3. Return ONLY a JSON array of activity logs without any explanation\n"
+        full_prompt += "4. Each activity log must include: group, category, timestamp, duration_minutes, and description\n\n"
+        full_prompt += f"Transcript:\n{transcript}"
 
-        payload = {
-            "model": settings.lmstudioModel or "phi-4",  # Use model from settings if available
-            "messages": [
-                {"role": "system", "content": full_prompt},
-                {"role": "user", "content": transcript}
-            ],
-            "temperature": 0.7,
-            "max_tokens": -1,
-            "stream": False
-        }
-
-        llm_api_url = settings.lmstudioEndpoint.rstrip("/") + "/chat/completions" 
-        logger.debug(f"Sending to LLM:\nPrompt: {full_prompt}\nTranscript: {transcript}")
+        logger.debug(f"Prompt length: {len(full_prompt)} characters")
         
+        # Call the LLM API with retry logic
         try:
-            response = await call_llm_api(prompt=full_prompt)
-            logger.info(f"LLM response type: {type(response)}")
-            logger.debug(f"LLM raw response: {response}")
+            logger.info("Calling LLM API with enhanced prompt...")
+            response = await call_llm_api(prompt=full_prompt, max_retries=3)
+            logger.info(f"LLM API call successful, response type: {type(response)}")
             
             # Handle different response formats
             if isinstance(response, dict):
@@ -326,90 +327,64 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                 if "choices" in response:
                     try:
                         content = response["choices"][0]["message"]["content"].strip()
-                        logger.debug(f"Raw LLM content: {repr(content)}")
+                        logger.debug(f"Raw LLM content: {repr(content[:200])}...")
 
-                        # Extract JSON from markdown code blocks if present
-                        if '```' in content:
-                            # Handle different markdown formats (```json, ```JSON, etc.)
-                            pattern = r'```(?:json|JSON)?\s*([\s\S]*?)```'
-                            matches = re.findall(pattern, content)
-                            if matches:
-                                content = matches[0].strip()
-                                logger.debug(f"Extracted JSON content: {repr(content)}")
-                            else:
-                                logger.warning("Could not extract content from code blocks")
-                        
-                        # Handle case where LLM returns [] with explanatory text
-                        if content.startswith('[') and ']' in content:
-                            # Extract just the JSON array part
-                            array_end = content.find(']') + 1
-                            json_part = content[:array_end].strip()
-                            logger.debug(f"Extracted array part: {repr(json_part)}")
-                            
-                            # If there's explanatory text, log it
-                            if len(content) > array_end:
-                                explanation = content[array_end:].strip()
-                                logger.info(f"LLM provided explanation: {explanation}")
-                                
-                            content = json_part
-
+                        # Use the enhanced extract_json_from_response function from llm_service
                         try:
-                            parsed = json.loads(content)
-                            if isinstance(parsed, list):
-                                # Check if the list is empty
-                                if not parsed:
-                                    logger.warning("LLM returned an empty list of logs, generating fallback activity")
-                                    # Generate a fallback activity based on the transcript
-                                    fallback_activity = generate_fallback_activity(transcript, recording_date)
-                                    try:
-                                        validated_logs = validate_activity_logs([fallback_activity])
-                                        return [log.dict() for log in validated_logs]
-                                    except Exception as e:
-                                        logger.error(f"Error validating fallback activity: {str(e)}")
-                                        # Create a very basic activity that will definitely pass validation
-                                        basic_activity = {
-                                            "group": "Other",
-                                            "category": "Other",
-                                            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-                                            "duration_minutes": 30,
-                                            "description": "Auto-generated activity from recording"
-                                        }
-                                        return [basic_activity]
-                                else:
-                                    try:
-                                        validated_logs = validate_activity_logs(parsed)
-                                        return [log.dict() for log in validated_logs]
-                                    except Exception as e:
-                                        logger.error(f"Error validating parsed logs: {str(e)}")
-                                        # Generate a fallback activity
-                                        fallback_activity = generate_fallback_activity(transcript, recording_date)
-                                        try:
-                                            validated_logs = validate_activity_logs([fallback_activity])
-                                            return [log.dict() for log in validated_logs]
-                                        except Exception as e2:
-                                            logger.error(f"Error validating fallback activity: {str(e2)}")
-                                            # Create a very basic activity that will definitely pass validation
-                                            basic_activity = {
-                                                "group": "Other",
-                                                "category": "Other",
-                                                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-                                                "duration_minutes": 30,
-                                                "description": "Auto-generated activity from recording"
-                                            }
-                                            return [basic_activity]
+                            from llm_service import extract_json_from_response
+                            parsed = extract_json_from_response(content)
+                            logger.info(f"Successfully extracted JSON using llm_service.extract_json_from_response")
+                        except ImportError:
+                            # Fallback to local JSON extraction if import fails
+                            logger.warning("Could not import extract_json_from_response, using local extraction")
+                            # Extract JSON from markdown code blocks if present
+                            if '```' in content:
+                                pattern = r'```(?:json|JSON)?\s*([\s\S]*?)```'
+                                matches = re.findall(pattern, content)
+                                if matches:
+                                    content = matches[0].strip()
+                                    logger.debug(f"Extracted JSON content from code blocks")
+                            
+                            # Handle case where LLM returns [] with explanatory text
+                            if content.startswith('[') and ']' in content:
+                                array_end = content.find(']') + 1
+                                content = content[:array_end].strip()
+                                logger.debug(f"Extracted JSON array part")
+                            
+                            try:
+                                parsed = json.loads(content)
+                            except json.JSONDecodeError as e:
+                                logger.error(f"Failed to parse JSON: {e}")
+                                raise
+
+                        # Process the parsed JSON
+                        if isinstance(parsed, list):
+                            # Check if the list is empty
+                            if not parsed:
+                                logger.warning("LLM returned an empty list of logs, generating fallback activity")
+                                fallback_activity = generate_fallback_activity(transcript, recording_date)
+                                validated_logs = validate_activity_logs([fallback_activity])
+                                return [log.dict() for log in validated_logs]
                             else:
-                                logger.error(f"Expected a list of logs but got: {type(parsed)}")
-                                return {"error": "LLM did not return a list of activity logs"}
-                        except json.JSONDecodeError as e:
-                            logger.error(f"JSONDecodeError: {e}")
-                            logger.error(f"Failed to parse LLM content as JSON: {repr(content)}")
-                            logger.warning("Using fallback activity generation due to JSON parsing error")
+                                logger.info(f"LLM returned {len(parsed)} activity logs")
+                                try:
+                                    validated_logs = validate_activity_logs(parsed)
+                                    logger.info(f"Successfully validated {len(validated_logs)} activity logs")
+                                    return [log.dict() for log in validated_logs]
+                                except Exception as e:
+                                    logger.error(f"Error validating parsed logs: {str(e)}")
+                                    # Generate a fallback activity
+                                    fallback_activity = generate_fallback_activity(transcript, recording_date)
+                                    validated_logs = validate_activity_logs([fallback_activity])
+                                    return [log.dict() for log in validated_logs]
+                        else:
+                            logger.error(f"Expected a list of logs but got: {type(parsed)}")
                             fallback_activity = generate_fallback_activity(transcript, recording_date)
                             validated_logs = validate_activity_logs([fallback_activity])
                             return [log.dict() for log in validated_logs]
                     except Exception as e:
-                        logger.error(f"Error parsing LLM content: {str(e)}")
-                        logger.warning("Using fallback activity generation due to general error")
+                        logger.error(f"Error processing LLM content: {str(e)}")
+                        logger.warning("Using fallback activity generation due to content processing error")
                         fallback_activity = generate_fallback_activity(transcript, recording_date)
                         validated_logs = validate_activity_logs([fallback_activity])
                         return [log.dict() for log in validated_logs]
@@ -417,25 +392,37 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                 # Handle direct JSON response
                 elif "error" in response:
                     logger.error(f"LLM returned an error: {response['error']}")
-                    return response
+                    fallback_activity = generate_fallback_activity(transcript, recording_date)
+                    validated_logs = validate_activity_logs([fallback_activity])
+                    return [log.dict() for log in validated_logs]
                 else:
                     logger.warning(f"Unexpected dictionary format: {list(response.keys())}")
-                    return {"error": "Unexpected LLM response format"}
+                    fallback_activity = generate_fallback_activity(transcript, recording_date)
+                    validated_logs = validate_activity_logs([fallback_activity])
+                    return [log.dict() for log in validated_logs]
             
             # Handle list response (already parsed JSON)
             elif isinstance(response, list):
-                logger.info("LLM returned a list response")
+                logger.info(f"LLM returned a list response with {len(response)} items")
                 try:
                     validated_logs = validate_activity_logs(response)
+                    logger.info(f"Successfully validated {len(validated_logs)} activity logs")
                     return [log.dict() for log in validated_logs]
                 except Exception as e:
                     logger.error(f"Error validating activity logs: {str(e)}")
-                    return {"error": f"Error validating activity logs: {str(e)}"}
+                    fallback_activity = generate_fallback_activity(transcript, recording_date)
+                    validated_logs = validate_activity_logs([fallback_activity])
+                    return [log.dict() for log in validated_logs]
             
-            # Handle other response types
+            # Handle other response types with graceful fallback
             else:
                 logger.error(f"Unexpected response type: {type(response)}")
-                return {"error": f"Unexpected response type: {type(response)}"}
+                fallback_activity = generate_fallback_activity(transcript, recording_date)
+                validated_logs = validate_activity_logs([fallback_activity])
+                return [log.dict() for log in validated_logs]
         except Exception as e:
-            logger.error("Error calling LLM: " + str(e))
-            return {"error": str(e)}
+            logger.error(f"Error calling LLM API: {str(e)}")
+            logger.warning("Using fallback activity generation due to LLM API error")
+            fallback_activity = generate_fallback_activity(transcript, recording_date)
+            validated_logs = validate_activity_logs([fallback_activity])
+            return [log.dict() for log in validated_logs]

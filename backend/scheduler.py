@@ -49,23 +49,28 @@ scheduler = BackgroundScheduler(
     }
 )
 
-async def generate_daily_report():
+async def generate_daily_report(target_date=None):
     """
-    Generate a daily report for the previous day.
-    This function is called automatically at the end of each day.
+    Generate a daily report for the specified date or the previous day if no date is provided.
+    This function is called automatically at the end of each day and can also be called manually.
+    
+    Args:
+        target_date (date, optional): The date to generate the report for. Defaults to yesterday.
     """
     from models import SessionLocal, ActivityLog
     from reports import generate_daily_report_for_date
     
-    current_date = date.today()
-    yesterday = current_date - timedelta(days=1)
-    logger.info(f"Generating daily report for {yesterday}")
+    if target_date is None:
+        current_date = date.today()
+        target_date = current_date - timedelta(days=1)
+    
+    logger.info(f"Generating daily report for {target_date}")
     
     try:
-        # Get activity logs for yesterday
+        # Get activity logs for the target date
         db = SessionLocal()
-        start_date = datetime.combine(yesterday, time.min)
-        end_date = datetime.combine(yesterday, time.max)
+        start_date = datetime.combine(target_date, time.min)
+        end_date = datetime.combine(target_date, time.max)
         
         logs = db.query(ActivityLog).filter(
             and_(
@@ -85,25 +90,28 @@ async def generate_daily_report():
         
         # Generate the report
         if logs_data:
-            report_data = await reports.generate_daily_report_for_date(yesterday, logs_data)
+            report_data = await generate_daily_report_for_date(target_date, logs_data)
             
             # Save the report
             report_filename = os.path.join(
                 DAILY_REPORTS_DIR, 
-                f"daily_report_{yesterday.strftime('%Y-%m-%d')}.json"
+                f"daily_report_{target_date.strftime('%Y-%m-%d')}.json"
             )
             
             with open(report_filename, "w") as f:
                 f.write(json.dumps(report_data, indent=2))
                 
             logger.info(f"Daily report saved to {report_filename}")
+            return report_data
         else:
-            logger.info(f"No activity logs found for {yesterday}, skipping report generation")
-    
+            logger.info(f"No activity logs found for {target_date}, skipping report generation")
+            return None
     except Exception as e:
         logger.error(f"Error generating daily report: {str(e)}")
+        return None
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 async def generate_weekly_report():
     """
@@ -122,6 +130,23 @@ async def generate_weekly_report():
         end_date = current_date - timedelta(days=days_since_monday + 1)  # Last Sunday
         start_date = end_date - timedelta(days=6)  # Last Monday
         logger.info(f"Week range: {start_date} to {end_date}")
+        
+        # First, ensure we have daily reports for each day in the week
+        current_day = start_date
+        while current_day <= end_date:
+            # Check if daily report exists for this day
+            daily_report_filename = os.path.join(
+                DAILY_REPORTS_DIR, 
+                f"daily_report_{current_day.strftime('%Y-%m-%d')}.json"
+            )
+            
+            if not os.path.exists(daily_report_filename):
+                logger.info(f"Daily report for {current_day} not found, generating it now")
+                # Generate the daily report for this day
+                await generate_daily_report(current_day)
+            
+            # Move to the next day
+            current_day += timedelta(days=1)
         
         logger.info(f"Generating weekly report for {start_date} to {end_date}")
         # Get activity logs for the week
@@ -147,8 +172,8 @@ async def generate_weekly_report():
         
         # Generate the weekly report
         if logs_data:
-            # Use the weekly report profile
-            report_data = await gen_weekly_report(start_date, end_date, logs_data)
+            # Use the weekly report profile with force_refresh=True to ensure a fresh report
+            report_data = await gen_weekly_report(start_date, end_date, logs_data, force_refresh=True)
             
             # Save the report
             report_filename = os.path.join(
@@ -188,6 +213,23 @@ async def generate_monthly_report():
     first_day_previous_month = date(last_day_previous_month.year, last_day_previous_month.month, 1)
     
     logger.info(f"Generating monthly report for {first_day_previous_month} to {last_day_previous_month}")
+    
+    # First, ensure we have daily reports for each day in the month
+    current_day = first_day_previous_month
+    while current_day <= last_day_previous_month:
+        # Check if daily report exists for this day
+        daily_report_filename = os.path.join(
+            DAILY_REPORTS_DIR, 
+            f"daily_report_{current_day.strftime('%Y-%m-%d')}.json"
+        )
+        
+        if not os.path.exists(daily_report_filename):
+            logger.info(f"Daily report for {current_day} not found, generating it now")
+            # Generate the daily report for this day
+            await generate_daily_report(current_day)
+        
+        # Move to the next day
+        current_day += timedelta(days=1)
     
     try:
         # Get activity logs for the month
