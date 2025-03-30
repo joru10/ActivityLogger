@@ -90,7 +90,7 @@ async def generate_daily_report(target_date=None):
         
         # Generate the report
         if logs_data:
-            report_data = await reports.generate_daily_report_for_date(target_date, logs_data)
+            report_data = await generate_daily_report_for_date(target_date, logs_data)
             
             # Save the report
             report_filename = os.path.join(
@@ -172,8 +172,8 @@ async def generate_weekly_report():
         
         # Generate the weekly report
         if logs_data:
-            # Use the weekly report profile
-            report_data = await gen_weekly_report(start_date, end_date, logs_data)
+            # Use the weekly report profile with force_refresh=True to ensure a fresh report
+            report_data = await gen_weekly_report(start_date, end_date, logs_data, force_refresh=True)
             
             # Save the report
             report_filename = os.path.join(

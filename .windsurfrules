@@ -1,0 +1,37 @@
+Windsurf Programming Rules
+
+1. Deployment & Environment Handling
+	•	Always use ENV for deploying applications.
+	•	Ensure all environment variables are managed correctly via .env files or OS-level environment settings.
+
+2. Frontend Development
+	•	Use VITE whenever possible for frontend development.
+	•	Configure Vite to work efficiently with the backend by ensuring proper API routing (proxying if needed).
+	•	Keep vite.config.js updated with necessary configurations.
+
+3. Backend Development
+	•	Use UVICORN as the ASGI server for running FastAPI backends.
+	•	Default to using FastAPI for building backend services.
+	•	Ensure correct handling of CORS policies and middleware.
+
+4. Database Usage
+	•	Use SQLite3 for simple database needs.
+	•	Keep database schema updates tracked with proper versioning/migrations (if needed).
+
+5. LLM Implementations
+	•	Always refer to LMStudio when dealing with LLM implementations.
+	•	Document configurations and LLM models used in the project.
+
+6. Dependency Management
+	•	Update the requirements file (requirements.txt or pyproject.toml) with new libraries as they are added.
+	•	Ensure consistency across team members by keeping dependencies version-controlled.
+
+7. Unified Launching Script
+	•	Maintain a launch.sh script to start the entire application stack.
+	•	The script should support:
+	•	Running both frontend and backend together.
+	•	Running only the backend (./launch.sh backend).
+	•	Running only the frontend (./launch.sh frontend).
+	•	Ensure it has appropriate logging and error-handling mechanisms.
+
+⸻

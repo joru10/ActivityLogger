@@ -1,6 +1,10 @@
 # backend/main.py
 import logging
 import sys
+import os
+
+# Add the parent directory to the Python path to allow imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

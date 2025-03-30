@@ -11,7 +11,8 @@ start_backend() {
     echo "Starting backend..."
     source venv/bin/activate
     cd backend
-    uvicorn main:app --host 0.0.0.0 --port 8000
+    # Set PYTHONPATH to include the current directory for proper imports
+    PYTHONPATH=$(pwd) uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 }
 
 # Function to start frontend
