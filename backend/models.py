@@ -24,7 +24,7 @@ logger.info(f"Database size: {os.path.getsize(DB_PATH) if os.path.exists(DB_PATH
 
 # Create the engine with increased timeout for LLM operations
 engine = create_engine(
-    DATABASE_URL, 
+    DATABASE_URL,
     connect_args={
         "check_same_thread": False,
         "timeout": 60
@@ -39,7 +39,7 @@ def safe_init_database():
     """Initialize database without dropping existing tables"""
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
-    
+
     if not existing_tables:
         logger.info("No existing tables found, creating new database")
         Base.metadata.create_all(bind=engine)
@@ -142,6 +142,22 @@ class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+
+class ReportCache(Base):
+    __tablename__ = "report_cache"
+    id = Column(Integer, primary_key=True, index=True)
+    report_type = Column(String, index=True)  # 'daily', 'weekly', 'monthly', etc.
+    date = Column(String, index=True)  # ISO format date string
+    report_data = Column(Text)  # JSON string of the report data
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def get_report_data(self):
+        """Return the report data as a Python object."""
+        try:
+            return json.loads(self.report_data) if self.report_data else {}
+        except Exception as e:
+            logger.error(f"Error parsing report data: {e}")
+            return {}
 
 # Initialize database and tables
 safe_init_database()
