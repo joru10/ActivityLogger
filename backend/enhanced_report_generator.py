@@ -20,10 +20,10 @@ WEEKLY_REPORTS_DIR = REPORTS_DIR / "weekly"
 def generate_enhanced_html_report(report_data):
     """
     Generate an enhanced HTML report with multiple visualizations.
-    
+
     Args:
         report_data: The report data dictionary
-        
+
     Returns:
         HTML string containing the report with all visualizations
     """
@@ -34,31 +34,31 @@ def generate_enhanced_html_report(report_data):
     time_by_category = executive_summary.get("time_by_category", {})
     daily_breakdown = executive_summary.get("daily_breakdown", {})
     details = report_data.get("details", [])
-    
+
     # Format time as hours and minutes
     hours = total_time // 60
     minutes = total_time % 60
     time_display = f"{hours} hours {minutes} minutes"
-    
+
     # Prepare data for daily activity distribution chart
     days = sorted(daily_breakdown.keys())
     daily_times = [daily_breakdown[day].get("total_time", 0) for day in days]
     formatted_days = [datetime.strptime(day, "%Y-%m-%d").strftime("%a %m-%d") for day in days]
-    
+
     # Prepare data for time by group table
     time_by_group_html = ""
     for group, minutes in time_by_group.items():
         group_hours = minutes // 60
         group_minutes = minutes % 60
         time_by_group_html += f"<tr><td>{group}</td><td>{group_hours} hours {group_minutes} minutes</td></tr>"
-    
+
     # Prepare data for time by category table
     time_by_category_html = ""
     for category, minutes in time_by_category.items():
         category_hours = minutes // 60
         category_minutes = minutes % 60
         time_by_category_html += f"<tr><td>{category}</td><td>{category_hours} hours {category_minutes} minutes</td></tr>"
-    
+
     # Create HTML for daily breakdown
     daily_breakdown_html = ""
     for day, data in sorted(daily_breakdown.items()):
@@ -66,21 +66,21 @@ def generate_enhanced_html_report(report_data):
         day_total = data.get("total_time", 0)
         day_hours = day_total // 60
         day_minutes = day_total % 60
-        
+
         # Create HTML for groups in this day
         day_groups_html = ""
         for group, minutes in data.get("time_by_group", {}).items():
             group_hours = minutes // 60
             group_minutes = minutes % 60
             day_groups_html += f"<tr><td>{group}</td><td>{group_hours} hours {group_minutes} minutes</td></tr>"
-        
+
         # Create HTML for categories in this day
         day_categories_html = ""
         for category, minutes in data.get("time_by_category", {}).items():
             category_hours = minutes // 60
             category_minutes = minutes % 60
             day_categories_html += f"<tr><td>{category}</td><td>{category_hours} hours {category_minutes} minutes</td></tr>"
-        
+
         daily_breakdown_html += f"""
         <div class="day-section">
             <h3>{day_date}</h3>
@@ -117,7 +117,7 @@ def generate_enhanced_html_report(report_data):
             </div>
         </div>
         """
-    
+
     # Create HTML for activity log
     activity_log_html = ""
     for activity in details:
@@ -129,12 +129,12 @@ def generate_enhanced_html_report(report_data):
                 formatted_time = timestamp
         else:
             formatted_time = ""
-            
+
         group = activity.get("group", "")
         category = activity.get("category", "")
         duration = activity.get("duration_minutes", 0)
         description = activity.get("description", "")
-        
+
         activity_log_html += f"""
         <tr>
             <td>{formatted_time}</td>
@@ -144,7 +144,7 @@ def generate_enhanced_html_report(report_data):
             <td>{description}</td>
         </tr>
         """
-    
+
     # Generate the full HTML report
     html = f"""
     <!DOCTYPE html>
@@ -251,10 +251,10 @@ def generate_enhanced_html_report(report_data):
     </head>
     <body>
         <h1>Weekly Activity Report</h1>
-        
+
         <div class="section">
             <h2>Executive Summary</h2>
-            
+
             <div class="summary-stats">
                 <div class="stat-card">
                     <h3>Total Time</h3>
@@ -269,13 +269,13 @@ def generate_enhanced_html_report(report_data):
                     <p>{len(time_by_group)}</p>
                 </div>
             </div>
-            
+
             <h3>Visualizations</h3>
-            
+
             <div class="chart-container">
                 <canvas id="dailyActivityChart"></canvas>
             </div>
-            
+
             <div class="charts-row">
                 <div class="chart-box">
                     <canvas id="categoryGroupChart"></canvas>
@@ -284,7 +284,7 @@ def generate_enhanced_html_report(report_data):
                     <canvas id="categoryGroupDoughnut"></canvas>
                 </div>
             </div>
-            
+
             <h3>Time by Group</h3>
             <table>
                 <thead>
@@ -297,7 +297,7 @@ def generate_enhanced_html_report(report_data):
                     {time_by_group_html}
                 </tbody>
             </table>
-            
+
             <h3>Time by Category</h3>
             <table>
                 <thead>
@@ -311,12 +311,12 @@ def generate_enhanced_html_report(report_data):
                 </tbody>
             </table>
         </div>
-        
+
         <div class="section">
             <h2>Daily Breakdown</h2>
             {daily_breakdown_html}
         </div>
-        
+
         <div class="section">
             <h2>Activity Log</h2>
             <table>
@@ -334,7 +334,7 @@ def generate_enhanced_html_report(report_data):
                 </tbody>
             </table>
         </div>
-        
+
         <script>
             // Create chart for daily activity
             const dailyCtx = document.getElementById('dailyActivityChart').getContext('2d');
@@ -376,7 +376,7 @@ def generate_enhanced_html_report(report_data):
                     }}
                 }}
             }});
-            
+
             // Function to generate distinct colors
             function getDistinctColors(count) {{
                 const colors = [];
@@ -389,68 +389,224 @@ def generate_enhanced_html_report(report_data):
                 }}
                 return colors;
             }}
-            
+
             // Create chart for category-group distribution (stacked bar chart)
             // This will be populated from the visualization data if available
+            console.log('EXTREMELY OBVIOUS TEST MESSAGE - THIS SHOULD APPEAR IN THE CONSOLE');
+            console.log('CHART MODIFICATION TEST - USING MODIFIED CHART');
             const categoryGroupCtx = document.getElementById('categoryGroupChart').getContext('2d');
-            
+
             // Check if we have the combined visualization data
             const categoryGroupData = {{
                 labels: {json.dumps(list(time_by_category.keys()))},
                 datasets: []
             }};
-            
+
+            console.log('CUSTOM CHART: Using enhanced category-group chart with proper stacking');
+
             // Get the settings to understand category-group relationships
             const categorySettings = {json.dumps(settings.get('categories', []))};
-            
+
             // Create a mapping of groups to their categories
             const groupToCategory = {{}};
             categorySettings.forEach(cat => {{
                 const catName = cat.name;
                 cat.groups.forEach(group => {{
-                    groupToCategory[group] = catName;
+                    // Handle both string and object formats
+                    const groupName = typeof group === 'string' ? group : group.name;
+                    groupToCategory[groupName] = catName;
+                    // Also add lowercase version for case-insensitive matching
+                    groupToCategory[groupName.toLowerCase()] = catName;
                 }});
             }});
-            
-            // Organize groups by category
+
+            // Add specific mappings for problematic groups
+            // These will override any existing mappings
+            const specificMappings = {{
+                'Deep Learning Specialization': 'Training',
+                'DeepLearning': 'Training',
+                'NLP Course': 'Training',
+                'AI News': 'Research',
+                'AI-News': 'Research',
+                'ActivityReports': 'Coding',
+                'Work': 'Work&Finance'
+            }};
+
+            // Force these categories to exist even if they're not in the data
+            const requiredCategories = ['Training', 'Research', 'Coding', 'Work&Finance', 'Other'];
+            requiredCategories.forEach(cat => {{
+                if (!time_by_category[cat]) {{
+                    time_by_category[cat] = 0;
+                    console.log(`Added missing category: ${cat}`);
+                }}
+            }});
+
+            // Add the specific mappings to the groupToCategory object
+            Object.entries(specificMappings).forEach(([group, category]) => {{
+                groupToCategory[group] = category;
+                // Also add lowercase version
+                groupToCategory[group.toLowerCase()] = category;
+                console.log(`Added specific mapping: ${group} -> ${category}`);
+            }});
+
+            console.log('CUSTOM CHART: Enhanced group-to-category mapping with fuzzy matching');
+
+            // Helper function to normalize group names
+            function normalizeGroupName(name) {{
+                if (!name) return '';
+                // Remove special characters and extra spaces
+                return name.toString().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+            }}
+
+            // Create a mapping of normalized group names to original group names
+            const normalizedToOriginal = {{}};
+            Object.keys(groupToCategory).forEach(groupName => {{
+                const normalized = normalizeGroupName(groupName);
+                normalizedToOriginal[normalized] = groupName;
+            }});
+
+            // Helper function to calculate string similarity
+            function stringSimilarity(s1, s2) {{
+                if (!s1 || !s2) return 0;
+                const longer = s1.length > s2.length ? s1 : s2;
+                const shorter = s1.length > s2.length ? s2 : s1;
+                const longerLength = longer.length;
+                if (longerLength === 0) return 1.0;
+                return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+            }}
+
+            function editDistance(s1, s2) {{
+                s1 = s1.toLowerCase();
+                s2 = s2.toLowerCase();
+                const costs = [];
+                for (let i = 0; i <= s1.length; i++) {{
+                    let lastValue = i;
+                    for (let j = 0; j <= s2.length; j++) {{
+                        if (i === 0) costs[j] = j;
+                        else if (j > 0) {{
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) !== s2.charAt(j - 1))
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }}
+                    }}
+                    if (i > 0) costs[s2.length] = lastValue;
+                }}
+                return costs[s2.length];
+            }}
+
+            // Process each group in time_by_group
             const groupsByCategory = {{}};
+
+            // Initialize categories
+            Object.keys(time_by_category).forEach(cat => {{
+                groupsByCategory[cat] = [];
+            }});
+
+            // Add 'Other' category if not present
+            if (!groupsByCategory['Other']) {{
+                groupsByCategory['Other'] = [];
+            }}
+
+            // Assign groups to categories with enhanced matching
             Object.entries(time_by_group).forEach(([group, time]) => {{
-                const category = groupToCategory[group] || 'Other';
+                // Try different matching strategies
+                let category = null;
+
+                // 1. Try exact match
+                if (groupToCategory[group]) {{
+                    category = groupToCategory[group];
+                    console.log(`Found exact match for group '${group}' -> '${category}'`);
+                }}
+                // 2. Try lowercase match
+                else if (groupToCategory[group.toLowerCase()]) {{
+                    category = groupToCategory[group.toLowerCase()];
+                    console.log(`Found lowercase match for group '${group}' -> '${category}'`);
+                }}
+                // 3. Try normalized match
+                else {{
+                    const normalizedGroup = normalizeGroupName(group);
+                    if (normalizedToOriginal[normalizedGroup]) {{
+                        const originalGroup = normalizedToOriginal[normalizedGroup];
+                        category = groupToCategory[originalGroup];
+                        console.log(`Found normalized match for group '${group}' -> '${originalGroup}' -> '${category}'`);
+                    }}
+                    // 4. Try fuzzy matching
+                    else {{
+                        // Find the best match among all normalized group names
+                        let bestMatch = null;
+                        let bestScore = 0.7; // Threshold for similarity
+
+                        Object.entries(normalizedToOriginal).forEach(([normName, origName]) => {{
+                            // Skip very short names to avoid false matches
+                            if (normName.length < 3 || normalizedGroup.length < 3) return;
+
+                            // Calculate similarity
+                            const similarity = stringSimilarity(normalizedGroup, normName);
+
+                            // Check if this is a substring match
+                            const substringMatch = normName.includes(normalizedGroup) || normalizedGroup.includes(normName);
+                            const adjustedSimilarity = substringMatch ? Math.max(similarity, 0.8) : similarity;
+
+                            if (adjustedSimilarity > bestScore) {{
+                                bestMatch = origName;
+                                bestScore = adjustedSimilarity;
+                            }}
+                        }});
+
+                        if (bestMatch) {{
+                            category = groupToCategory[bestMatch];
+                            console.log(`Found fuzzy match for group '${group}' -> '${bestMatch}' (score: ${bestScore.toFixed(2)}) -> '${category}'`);
+                        }}
+                    }}
+                }}
+
+                // If no match found, use 'Other'
+                if (!category) {{
+                    category = 'Other';
+                    console.log(`No category match found for group '${group}', assigning to 'Other'`);
+                }}
+
+                // Add to the appropriate category
                 if (!groupsByCategory[category]) {{
                     groupsByCategory[category] = [];
                 }}
+
                 groupsByCategory[category].push({{ name: group, time }});
             }});
-            
+
             // Get all unique groups
             const allGroups = Object.keys(time_by_group);
             const groupColors = getDistinctColors(allGroups.length);
-            
+
             // Create a color map for groups
             const groupColorMap = {{}};
             allGroups.forEach((group, index) => {{
                 groupColorMap[group] = groupColors[index];
             }});
-            
+
             // For each category, create datasets for each group
             const categoryLabels = Object.keys(time_by_category);
-            
+
             categoryLabels.forEach(category => {{
                 const categoryGroups = groupsByCategory[category] || [];
-                
+
                 // Sort groups by time (descending)
                 categoryGroups.sort((a, b) => b.time - a.time);
-                
+
                 // Add each group as a separate dataset
                 categoryGroups.forEach(groupInfo => {{
                     const groupName = groupInfo.name;
                     const groupTime = groupInfo.time;
-                    
+
                     // Create data array with zeros for all categories except this one
                     const data = Array(categoryLabels.length).fill(0);
                     const categoryIndex = categoryLabels.indexOf(category);
+                    // Keep the data in minutes for now - the y-axis ticks will convert to hours
                     data[categoryIndex] = groupTime;
-                    
+                    console.log(`Adding ${groupTime} minutes (${(groupTime/60).toFixed(1)}h) for ${groupName} in ${category}`);
+
                     categoryGroupData.datasets.push({{
                         label: `${{category}} - ${{groupName}}`,
                         data: data,
@@ -461,7 +617,7 @@ def generate_enhanced_html_report(report_data):
                     }});
                 }});
             }});
-            
+
             const categoryGroupChart = new Chart(categoryGroupCtx, {{
                 type: 'bar',
                 data: categoryGroupData,
@@ -471,18 +627,19 @@ def generate_enhanced_html_report(report_data):
                     plugins: {{
                         title: {{
                             display: true,
-                            text: 'Combined Category-Group Distribution',
+                            text: 'MODIFIED CHART - Category-Group Distribution',
                             font: {{
-                                size: 16
+                                size: 24,
+                                weight: 'bold'
                             }}
                         }},
                         tooltip: {{
                             callbacks: {{
                                 label: function(context) {{
                                     const value = context.raw;
-                                    const hours = Math.floor(value / 60);
-                                    const minutes = value % 60;
-                                    return `${{context.dataset.label}}: ${{hours}}h ${{minutes}}m`;
+                                    // Convert minutes to hours with 1 decimal place
+                                    const hours = (value / 60).toFixed(1);
+                                    return `${{context.dataset.label}}: ${{hours}}h`;
                                 }}
                             }}
                         }}
@@ -498,13 +655,19 @@ def generate_enhanced_html_report(report_data):
                             stacked: true,
                             title: {{
                                 display: true,
-                                text: 'Minutes'
+                                text: 'Hours'
+                            }},
+                            ticks: {{
+                                callback: function(value, index, values) {{
+                                    // Convert minutes to hours with 1 decimal place
+                                    return (value / 60).toFixed(1) + 'h';
+                                }}
                             }}
                         }}
                     }}
                 }}
             }});
-            
+
             // Create doughnut chart for category distribution
             const doughnutCtx = document.getElementById('categoryGroupDoughnut').getContext('2d');
             const doughnutChart = new Chart(doughnutCtx, {{
@@ -545,16 +708,16 @@ def generate_enhanced_html_report(report_data):
     </body>
     </html>
     """
-    
+
     return html
 
 def update_weekly_report(report_path):
     """
     Update a weekly report with enhanced visualizations.
-    
+
     Args:
         report_path: Path to the report file
-        
+
     Returns:
         True if successful, False otherwise
     """
@@ -562,20 +725,20 @@ def update_weekly_report(report_path):
         # Read the report file
         with open(report_path, 'r') as f:
             report_data = json.load(f)
-        
+
         # Generate an enhanced HTML report
         html_report = generate_enhanced_html_report(report_data)
-        
+
         # Update the report data
         report_data['html_report'] = html_report
-        
+
         # Save the updated report
         with open(report_path, 'w') as f:
             json.dump(report_data, f, indent=2)
-        
+
         logger.info(f"Successfully updated weekly report with enhanced visualizations: {report_path}")
         return True
-    
+
     except Exception as e:
         logger.error(f"Error updating report {report_path}: {e}")
         return False
@@ -584,16 +747,16 @@ def update_all_weekly_reports():
     """Update all weekly reports with enhanced visualizations."""
     # Create the directory if it doesn't exist
     os.makedirs(WEEKLY_REPORTS_DIR, exist_ok=True)
-    
+
     # Get all weekly report files
     report_files = list(WEEKLY_REPORTS_DIR.glob("weekly_report_*.json"))
     logger.info(f"Found {len(report_files)} weekly report files")
-    
+
     success_count = 0
     for report_file in report_files:
         if update_weekly_report(report_file):
             success_count += 1
-    
+
     logger.info(f"Successfully updated {success_count} out of {len(report_files)} weekly reports")
 
 if __name__ == "__main__":
