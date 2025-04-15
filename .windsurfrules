@@ -3,11 +3,13 @@ Windsurf Programming Rules
 1. Deployment & Environment Handling
 	•	Always use ENV for deploying applications.
 	•	Ensure all environment variables are managed correctly via .env files or OS-level environment settings.
+	•	Use uv for managing Python packages where possible
 
 2. Frontend Development
 	•	Use VITE whenever possible for frontend development.
 	•	Configure Vite to work efficiently with the backend by ensuring proper API routing (proxying if needed).
 	•	Keep vite.config.js updated with necessary configurations.
+	•	Use npx-server for running frontend development.
 
 3. Backend Development
 	•	Use UVICORN as the ASGI server for running FastAPI backends.
@@ -21,6 +23,7 @@ Windsurf Programming Rules
 5. LLM Implementations
 	•	Always refer to LMStudio when dealing with LLM implementations.
 	•	Document configurations and LLM models used in the project.
+	•	I want to use Pydantic for LLM format control in json responses
 
 6. Dependency Management
 	•	Update the requirements file (requirements.txt or pyproject.toml) with new libraries as they are added.

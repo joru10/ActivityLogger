@@ -28,7 +28,7 @@ class Activity(BaseModel):
     timestamp: str
     duration_minutes: int
     description: str
-    
+
     @field_validator('timestamp')
     @classmethod
     def validate_timestamp(cls, v):
@@ -41,7 +41,7 @@ class Activity(BaseModel):
             # If it fails, generate a valid timestamp
             logger.warning(f"Invalid timestamp format '{v}', using current time instead")
             return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    
+
     @field_validator('duration_minutes')
     @classmethod
     def validate_duration(cls, v):
@@ -50,7 +50,7 @@ class Activity(BaseModel):
             logger.warning(f"Invalid duration '{v}', using default of 30 minutes")
             return 30
         return v
-    
+
     @field_validator('group')
     @classmethod
     def validate_group(cls, v):
@@ -58,7 +58,7 @@ class Activity(BaseModel):
         if not v or not v.strip():
             return "Other"
         return v
-    
+
     @field_validator('description')
     @classmethod
     def validate_description(cls, v):
@@ -122,7 +122,7 @@ async def stop_recording(
     """
     if not session_id:
         raise HTTPException(status_code=400, detail="Missing session_id")
-    
+
     # Save the uploaded WAV file
     day_dir = get_today_directory()
     wav_filename = f"recording_{session_id}.wav"
@@ -193,7 +193,7 @@ def load_profile(profile_name: str) -> str:
         if not os.path.exists(profile_path):
             logger.error(f"Profile {profile_name} not found at {profile_path}")
             raise HTTPException(status_code=500, detail=f"Profile {profile_name} not found")
-            
+
         with open(profile_path, "r", encoding="utf-8") as f:
             try:
                 profile_data = yaml.safe_load(f)
@@ -219,13 +219,13 @@ def generate_fallback_activity(transcript: str, recording_date: str) -> dict:
     Uses the transcript to create a basic activity entry.
     """
     logger.info("Generating fallback activity from transcript")
-    
+
     # Get the current time for the timestamp
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    
+
     # Extract a summary from the transcript (first 50 chars or less)
     description = transcript[:200] + "..." if len(transcript) > 200 else transcript
-    
+
     # Create a basic activity log
     fallback_activity = {
         "group": "Other",
@@ -234,7 +234,7 @@ def generate_fallback_activity(transcript: str, recording_date: str) -> dict:
         "duration_minutes": 30,  # Default duration
         "description": f"Auto-generated from recording: {description}"
     }
-    
+
     logger.info(f"Created fallback activity: {fallback_activity}")
     return fallback_activity
 
@@ -249,13 +249,13 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
             # Add missing category if not present
             if 'category' not in item:
                 item['category'] = 'Other'
-            
+
             # Validate and add the activity
             activities.append(Activity.model_validate(item))
         except ValidationError as e:
             logger.warning(f"Skipping invalid activity log: {item}. Error: {str(e)}")
             continue
-    
+
     if not activities:
         logger.warning("No valid activity logs found after validation, creating a default activity")
         # Create a default activity that will definitely pass validation
@@ -297,7 +297,12 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
         for cat in categories:
             categories_text += f"- {cat['name']}:\n"
             for group in cat.get('groups', []):
-                categories_text += f"  * {group}\n"
+                # Handle both string and dictionary formats for groups
+                if isinstance(group, dict) and 'name' in group:
+                    group_name = group['name']
+                else:
+                    group_name = str(group)
+                categories_text += f"  * {group_name}\n"
 
         # Construct the full prompt with recording date, categories, and transcript
         full_prompt = f"{profile_prompt}\n\n"
@@ -312,17 +317,17 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
         full_prompt += f"Transcript:\n{transcript}"
 
         logger.debug(f"Prompt length: {len(full_prompt)} characters")
-        
+
         # Call the LLM API with retry logic
         try:
             logger.info("Calling LLM API with enhanced prompt...")
             response = await call_llm_api(prompt=full_prompt, max_retries=3)
             logger.info(f"LLM API call successful, response type: {type(response)}")
-            
+
             # Handle different response formats
             if isinstance(response, dict):
                 logger.info("LLM returned a dictionary response")
-                
+
                 # Handle OpenAI/LMStudio API format with choices
                 if "choices" in response:
                     try:
@@ -344,13 +349,13 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                                 if matches:
                                     content = matches[0].strip()
                                     logger.debug(f"Extracted JSON content from code blocks")
-                            
+
                             # Handle case where LLM returns [] with explanatory text
                             if content.startswith('[') and ']' in content:
                                 array_end = content.find(']') + 1
                                 content = content[:array_end].strip()
                                 logger.debug(f"Extracted JSON array part")
-                            
+
                             try:
                                 parsed = json.loads(content)
                             except json.JSONDecodeError as e:
@@ -388,7 +393,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                         fallback_activity = generate_fallback_activity(transcript, recording_date)
                         validated_logs = validate_activity_logs([fallback_activity])
                         return [log.dict() for log in validated_logs]
-                
+
                 # Handle direct JSON response
                 elif "error" in response:
                     logger.error(f"LLM returned an error: {response['error']}")
@@ -400,7 +405,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                     validated_logs = validate_activity_logs([fallback_activity])
                     return [log.dict() for log in validated_logs]
-            
+
             # Handle list response (already parsed JSON)
             elif isinstance(response, list):
                 logger.info(f"LLM returned a list response with {len(response)} items")
@@ -413,7 +418,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                     validated_logs = validate_activity_logs([fallback_activity])
                     return [log.dict() for log in validated_logs]
-            
+
             # Handle other response types with graceful fallback
             else:
                 logger.error(f"Unexpected response type: {type(response)}")

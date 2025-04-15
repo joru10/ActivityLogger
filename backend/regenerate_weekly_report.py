@@ -20,7 +20,7 @@ WEEKLY_REPORTS_DIR = REPORTS_DIR / "weekly"
 
 def generate_proper_html_report(report_data):
     """
-    Generate a proper HTML report using the actual data in the report.
+    Generate a proper HTML report using the visualization logic from report_templates.py.
     
     Args:
         report_data: The report data dictionary
@@ -28,57 +28,55 @@ def generate_proper_html_report(report_data):
     Returns:
         HTML string containing the report
     """
+    from datetime import date
+    from report_templates import generate_html_report, ChartData
+    
     # Extract data from the report
     executive_summary = report_data.get("executive_summary", {})
     total_time = executive_summary.get("total_time", 0)
     time_by_group = executive_summary.get("time_by_group", {})
+    time_by_category = executive_summary.get("time_by_category", {})
     daily_breakdown = executive_summary.get("daily_breakdown", {})
     details = report_data.get("details", [])
     
-    # Format time as hours and minutes
-    hours = total_time // 60
-    minutes = total_time % 60
-    time_display = f"{hours} hours {minutes} minutes"
+    # Convert dates to date objects
+    start_date = date.fromisoformat(report_data.get("start_date"))
+    end_date = date.fromisoformat(report_data.get("end_date"))
     
-    # Create HTML for time by group
-    time_by_group_html = ""
-    for group, minutes in time_by_group.items():
-        group_hours = minutes // 60
-        group_minutes = minutes % 60
-        time_by_group_html += f"<tr><td>{group}</td><td>{group_hours} hours {group_minutes} minutes</td></tr>"
+    # Convert daily_breakdown to use DailyTimeBreakdown objects
+    processed_daily_breakdown = {}
+    for day, data in daily_breakdown.items():
+        processed_daily_breakdown[day] = {
+            "total_time": data.get("total_time", 0),
+            "time_by_group": data.get("time_by_group", {}),
+            "time_by_category": data.get("time_by_category", {})
+        }
     
-    # Create HTML for daily breakdown
-    daily_breakdown_html = ""
-    for day, data in sorted(daily_breakdown.items()):
-        day_date = datetime.strptime(day, "%Y-%m-%d").strftime("%A, %B %d, %Y")
-        day_total = data.get("total_time", 0)
-        day_hours = day_total // 60
-        day_minutes = day_total % 60
-        
-        # Create HTML for groups in this day
-        day_groups_html = ""
-        for group, minutes in data.get("time_by_group", {}).items():
-            group_hours = minutes // 60
-            group_minutes = minutes % 60
-            day_groups_html += f"<tr><td>{group}</td><td>{group_hours} hours {group_minutes} minutes</td></tr>"
-        
-        daily_breakdown_html += f"""
-        <div class="day-section">
-            <h3>{day_date}</h3>
-            <p>Total time: {day_hours} hours {day_minutes} minutes</p>
-            <table class="group-table">
-                <thead>
-                    <tr>
-                        <th>Group</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {day_groups_html}
-                </tbody>
-            </table>
-        </div>
-        """
+    # Generate the HTML report using the template function
+    return generate_html_report(
+        start_date=start_date,
+        end_date=end_date,
+        total_time=total_time,
+        time_by_group=time_by_group,
+        time_by_category=time_by_category,
+        daily_breakdown=processed_daily_breakdown,
+        visualizations={
+            "time_by_group": ChartData(
+                chart_type="bar",
+                title="Time Spent by Group",
+                description="Total time spent on each activity group",
+                labels=list(time_by_group.keys()),
+                datasets=[{
+                    "label": "Hours",
+                    "data": [time / 60 for time in time_by_group.values()],  # Convert minutes to hours
+                    "backgroundColor": "rgba(54, 162, 235, 0.5)",
+                    "borderColor": "rgba(54, 162, 235, 1)",
+                    "borderWidth": 1
+                }]
+            )
+        },
+        logs_data=details
+    )
     
     # Create HTML for activity log
     activity_log_html = ""

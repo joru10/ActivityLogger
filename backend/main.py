@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import recording
 import api  # Import the router from api.py
 import reports
+import custom_reports
 import scheduler  # Import the scheduler module
 from scheduler import start_scheduler
 
@@ -35,13 +36,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"] 
+    expose_headers=["*"]
 )
 
 # Include the recording router
 app.include_router(recording.router, prefix="/api/recording", tags=["recording"])
 app.include_router(api.router, prefix="/api", tags=["api"])
-app.include_router(reports.router, prefix="/api/reports", tags=["reports"])  
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+app.include_router(custom_reports.router, prefix="/api/reports", tags=["custom_reports"])
 app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"])
 
 @app.get("/debug/routes", tags=["debug"])
