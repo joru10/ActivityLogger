@@ -60,6 +60,10 @@ class SettingsUpdate(BaseModel):
     llmProvider: str
     openRouterApiKey: str = ""
     openRouterLLM: str = ""
+    lmstudioEndpoint: str = "http://localhost:1234/v1"
+    lmstudioModel: str = "default_model"
+    lmstudioLogsModel: Optional[str] = None
+    lmstudioReportsModel: Optional[str] = None
     categories: List[Category]
 
 @router.get("/settings")
@@ -80,25 +84,37 @@ def update_settings(updated_settings: SettingsUpdate, db: Session = Depends(get_
             settings = Settings()
             db.add(settings)
             logger.info("Created new settings record")
-        
+
         # Update fields from Pydantic model
         settings_dict = updated_settings.dict()
         logger.info(f"Current settings before update: {settings.dict()}")
-        
+
         # Update scalar fields
-        for field in ["notificationInterval", "audioDevice", "llmProvider", 
-                     "openRouterApiKey", "openRouterLLM"]:
+        for field in ["notificationInterval", "audioDevice", "llmProvider",
+                     "openRouterApiKey", "openRouterLLM", "lmstudioEndpoint",
+                     "lmstudioModel"]:
             if field in settings_dict:
                 setattr(settings, field, settings_dict[field])
-        
+
+        # Handle the new fields with special logic
+        if "lmstudioLogsModel" in settings_dict and settings_dict["lmstudioLogsModel"] is not None:
+            settings.lmstudioLogsModel = settings_dict["lmstudioLogsModel"]
+        elif not settings.lmstudioLogsModel:  # If it's not set yet
+            settings.lmstudioLogsModel = settings.lmstudioModel or "phi-3-mini-4k"
+
+        if "lmstudioReportsModel" in settings_dict and settings_dict["lmstudioReportsModel"] is not None:
+            settings.lmstudioReportsModel = settings_dict["lmstudioReportsModel"]
+        elif not settings.lmstudioReportsModel:  # If it's not set yet
+            settings.lmstudioReportsModel = settings.lmstudioModel or "gemma-7b"
+
         # Update categories
         if "categories" in settings_dict:
             settings.set_categories(settings_dict["categories"])
-        
+
         db.commit()
         logger.info("Settings committed to database")
         return settings.dict()
-        
+
     except Exception as e:
         logger.error(f"Error updating settings: {e}")
         db.rollback()

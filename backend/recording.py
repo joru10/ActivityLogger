@@ -69,20 +69,49 @@ class Activity(BaseModel):
 
 def save_activity_logs(activity_logs: list):
     """
-    Saves a list of activity log records (dictionaries) into the database.
+    Saves a list of activity log records to the database.
+    Handles both Pydantic models and dictionaries.
     """
     db = SessionLocal()
     try:
-        for record in activity_logs:
-            new_log = ActivityLog(
-                group=record.get("group", "others"),
-                category=record.get("category", "others"),
-                timestamp=datetime.fromisoformat(record.get("timestamp").split('+')[0].strip()),
-                duration_minutes=record.get("duration_minutes", 15),
-                description=record.get("description", "")
-            )
+        # Check if we need to validate the logs (if they're dictionaries)
+        # or if they're already validated Pydantic models
+        if activity_logs and not isinstance(activity_logs[0], Activity):
+            # These are dictionaries, validate them
+            logger.info("Validating activity logs before saving to database")
+            validated_logs = validate_activity_logs(activity_logs)
+        else:
+            # These are already Pydantic models
+            validated_logs = activity_logs
+
+        logger.info(f"Saving {len(validated_logs)} activity logs to database")
+
+        for activity in validated_logs:
+            # Get the data from the activity (either a Pydantic model or a dict)
+            if isinstance(activity, Activity):
+                # It's a Pydantic model, use its attributes
+                new_log = ActivityLog(
+                    group=activity.group,
+                    category=activity.category,
+                    timestamp=datetime.fromisoformat(activity.timestamp.split('+')[0].strip()),
+                    duration_minutes=activity.duration_minutes,
+                    description=activity.description
+                )
+            else:
+                # It's a dictionary
+                new_log = ActivityLog(
+                    group=activity.get("group", "Other"),
+                    category=activity.get("category", "Other"),
+                    timestamp=datetime.fromisoformat(activity.get("timestamp", "").split('+')[0].strip()),
+                    duration_minutes=activity.get("duration_minutes", 30),
+                    description=activity.get("description", "")
+                )
+
             db.add(new_log)
+            logger.info(f"Adding activity to database: {new_log.category}/{new_log.group} - {new_log.duration_minutes} minutes")
+
         db.commit()
+        logger.info(f"Successfully committed {len(validated_logs)} activity logs to database")
     except Exception as e:
         db.rollback()
         logger.error(f"Error saving activity logs: {e}")
@@ -157,15 +186,33 @@ async def stop_recording(
     # Pass the transcript, formatted_date, and profile_prompt.
     llm_response = await process_transcript_with_llm(transcript, formatted_date, profile_prompt)
 
-    # If the response contains an array of activity logs, save them to the database.
-    if "error" not in llm_response and isinstance(llm_response, list):
-        save_activity_logs(llm_response)
+    # If the response contains activity logs, save them to the database.
+    if "error" not in llm_response and (isinstance(llm_response, list) or isinstance(llm_response, Activity)):
+        # The llm_response should already be validated by Pydantic in process_transcript_with_llm
+        # Convert to list if it's a single Activity
+        if isinstance(llm_response, Activity):
+            activities_to_save = [llm_response]
+        else:
+            activities_to_save = llm_response
+
+        # Save the activities
+        save_activity_logs(activities_to_save)
+        logger.info(f"Saved {len(activities_to_save)} activity logs to database")
+
+        # Convert Pydantic models to dictionaries for the response
+        response_data = []
+        for activity in activities_to_save:
+            if isinstance(activity, Activity):
+                response_data.append(activity.model_dump())
+            else:
+                response_data.append(activity)
     else:
         logger.error("LLM response did not contain valid activity logs for saving.")
+        response_data = llm_response
 
     return {
         "message": "Recording stopped and processed.",
-        "llm_response": llm_response
+        "llm_response": response_data
     }
 
 def transcribe_audio(wav_path: Path) -> str:
@@ -217,21 +264,63 @@ def generate_fallback_activity(transcript: str, recording_date: str) -> dict:
     """
     Generate a fallback activity log when the LLM fails to produce valid logs.
     Uses the transcript to create a basic activity entry.
+    Attempts to extract category, group, and duration from the transcript.
     """
     logger.info("Generating fallback activity from transcript")
 
     # Get the current time for the timestamp
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-    # Extract a summary from the transcript (first 50 chars or less)
+    # Extract a summary from the transcript
     description = transcript[:200] + "..." if len(transcript) > 200 else transcript
 
-    # Create a basic activity log
+    # Default values
+    category = "Other"
+    group = "Other"
+    duration_minutes = 30
+
+    # Try to extract category and group from transcript using regex patterns
+    # Look for category mentions
+    category_match = re.search(r'(?i)category[:\s]+([\w&\s-]+)', transcript)
+    if category_match:
+        potential_category = category_match.group(1).strip()
+        # Check if it's one of our known categories
+        if potential_category.lower() in ["research", "coding", "training", "work&finance", "business"]:
+            category = potential_category.title()
+            logger.info(f"Extracted category from transcript: {category}")
+
+    # Look for group mentions
+    group_match = re.search(r'(?i)group[:\s]+([\w&\s-]+)', transcript) or re.search(r'(?i)([\w&\s-]+) group', transcript)
+    if group_match:
+        group = group_match.group(1).strip()
+        logger.info(f"Extracted group from transcript: {group}")
+
+    # Special case for AI News which appears frequently
+    if re.search(r'(?i)(ai[\s-]news|news about ai)', transcript):
+        category = "Research"
+        group = "AI News"
+        logger.info("Detected AI News in transcript")
+
+    # Try to extract duration
+    duration_match = re.search(r'(?i)(\d+)\s*(hour|hr|hours|minute|min|minutes)', transcript)
+    if duration_match:
+        amount = int(duration_match.group(1))
+        unit = duration_match.group(2).lower()
+
+        # Convert to minutes
+        if unit.startswith('hour'):
+            duration_minutes = amount * 60
+        else:
+            duration_minutes = amount
+
+        logger.info(f"Extracted duration from transcript: {duration_minutes} minutes")
+
+    # Create a basic activity log with extracted information
     fallback_activity = {
-        "group": "Other",
-        "category": "Other",
+        "group": group,
+        "category": category,
         "timestamp": current_time,
-        "duration_minutes": 30,  # Default duration
+        "duration_minutes": duration_minutes,
         "description": f"Auto-generated from recording: {description}"
     }
 
@@ -242,6 +331,7 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
     """
     Validate a list of activity log records using the Activity Pydantic model.
     Handles validation errors gracefully by logging them and skipping invalid records.
+    Attempts to fix incomplete or malformed records before validation.
     """
     activities = []
     for item in data:
@@ -250,11 +340,58 @@ def validate_activity_logs(data: List[dict]) -> List[Activity]:
             if 'category' not in item:
                 item['category'] = 'Other'
 
+            # Add missing fields with default values if needed
+            if 'group' not in item or not item['group']:
+                item['group'] = 'Other'
+
+            if 'timestamp' not in item or not item['timestamp']:
+                item['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+            if 'duration_minutes' not in item:
+                item['duration_minutes'] = 30
+            elif not isinstance(item['duration_minutes'], int):
+                # Try to convert to int if possible
+                try:
+                    item['duration_minutes'] = int(float(str(item['duration_minutes'])))
+                except (ValueError, TypeError):
+                    item['duration_minutes'] = 30
+
+            if 'description' not in item or not item['description']:
+                item['description'] = 'No description provided'
+
             # Validate and add the activity
             activities.append(Activity.model_validate(item))
+            logger.info(f"Successfully validated activity: {item['group']} - {item['category']}")
         except ValidationError as e:
-            logger.warning(f"Skipping invalid activity log: {item}. Error: {str(e)}")
-            continue
+            logger.warning(f"Validation error for activity log: {item}. Error: {str(e)}")
+            # Try to extract partial data and create a valid activity
+            try:
+                # Extract as much valid data as possible
+                group = item.get('group', 'Other') or 'Other'
+                category = item.get('category', 'Other') or 'Other'
+                description = item.get('description', 'Partially recovered activity') or 'Partially recovered activity'
+
+                # Try to get duration, defaulting to 30 minutes
+                try:
+                    duration = int(float(str(item.get('duration_minutes', 30))))
+                    if duration <= 0:
+                        duration = 30
+                except (ValueError, TypeError):
+                    duration = 30
+
+                # Create a partially recovered activity
+                partial_activity = Activity(
+                    group=group,
+                    category=category,
+                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                    duration_minutes=duration,
+                    description=f"Partially recovered: {description}"
+                )
+                activities.append(partial_activity)
+                logger.info(f"Created partially recovered activity for: {group} - {category}")
+            except Exception as recovery_error:
+                logger.warning(f"Failed to recover partial data: {str(recovery_error)}")
+                continue
 
     if not activities:
         logger.warning("No valid activity logs found after validation, creating a default activity")
@@ -321,7 +458,7 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
         # Call the LLM API with retry logic
         try:
             logger.info("Calling LLM API with enhanced prompt...")
-            response = await call_llm_api(prompt=full_prompt, max_retries=3)
+            response = await call_llm_api(prompt=full_prompt, max_retries=3, model_type="logs")
             logger.info(f"LLM API call successful, response type: {type(response)}")
 
             # Handle different response formats
@@ -369,42 +506,43 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                                 logger.warning("LLM returned an empty list of logs, generating fallback activity")
                                 fallback_activity = generate_fallback_activity(transcript, recording_date)
                                 validated_logs = validate_activity_logs([fallback_activity])
-                                return [log.dict() for log in validated_logs]
+                                return validated_logs
                             else:
                                 logger.info(f"LLM returned {len(parsed)} activity logs")
                                 try:
                                     validated_logs = validate_activity_logs(parsed)
                                     logger.info(f"Successfully validated {len(validated_logs)} activity logs")
-                                    return [log.dict() for log in validated_logs]
+                                    # Return the validated Pydantic models directly
+                                    return validated_logs
                                 except Exception as e:
                                     logger.error(f"Error validating parsed logs: {str(e)}")
                                     # Generate a fallback activity
                                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                                     validated_logs = validate_activity_logs([fallback_activity])
-                                    return [log.dict() for log in validated_logs]
+                                    return validated_logs
                         else:
                             logger.error(f"Expected a list of logs but got: {type(parsed)}")
                             fallback_activity = generate_fallback_activity(transcript, recording_date)
                             validated_logs = validate_activity_logs([fallback_activity])
-                            return [log.dict() for log in validated_logs]
+                            return validated_logs
                     except Exception as e:
                         logger.error(f"Error processing LLM content: {str(e)}")
                         logger.warning("Using fallback activity generation due to content processing error")
                         fallback_activity = generate_fallback_activity(transcript, recording_date)
                         validated_logs = validate_activity_logs([fallback_activity])
-                        return [log.dict() for log in validated_logs]
+                        return validated_logs
 
                 # Handle direct JSON response
                 elif "error" in response:
                     logger.error(f"LLM returned an error: {response['error']}")
                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                     validated_logs = validate_activity_logs([fallback_activity])
-                    return [log.dict() for log in validated_logs]
+                    return validated_logs
                 else:
                     logger.warning(f"Unexpected dictionary format: {list(response.keys())}")
                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                     validated_logs = validate_activity_logs([fallback_activity])
-                    return [log.dict() for log in validated_logs]
+                    return validated_logs
 
             # Handle list response (already parsed JSON)
             elif isinstance(response, list):
@@ -412,22 +550,22 @@ async def process_transcript_with_llm(transcript: str, recording_date: str, prof
                 try:
                     validated_logs = validate_activity_logs(response)
                     logger.info(f"Successfully validated {len(validated_logs)} activity logs")
-                    return [log.dict() for log in validated_logs]
+                    return validated_logs
                 except Exception as e:
                     logger.error(f"Error validating activity logs: {str(e)}")
                     fallback_activity = generate_fallback_activity(transcript, recording_date)
                     validated_logs = validate_activity_logs([fallback_activity])
-                    return [log.dict() for log in validated_logs]
+                    return validated_logs
 
             # Handle other response types with graceful fallback
             else:
                 logger.error(f"Unexpected response type: {type(response)}")
                 fallback_activity = generate_fallback_activity(transcript, recording_date)
                 validated_logs = validate_activity_logs([fallback_activity])
-                return [log.dict() for log in validated_logs]
+                return validated_logs
         except Exception as e:
             logger.error(f"Error calling LLM API: {str(e)}")
             logger.warning("Using fallback activity generation due to LLM API error")
             fallback_activity = generate_fallback_activity(transcript, recording_date)
             validated_logs = validate_activity_logs([fallback_activity])
-            return [log.dict() for log in validated_logs]
+            return validated_logs

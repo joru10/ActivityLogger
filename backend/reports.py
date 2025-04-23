@@ -243,7 +243,7 @@ async def generate_daily_report_for_date(report_date, logs_data):
         prompt = f"{profile_prompt}\n\nReport Date: {report_date}\nTotal Time: {total_time}\nTime by Group: {json.dumps(time_by_group, indent=2)}\nActivities:\n{logs_json}"
         logger.info(f"Prompt being sent to LLM: {prompt}")
         logger.info("Calling LLM API...")
-        llm_response = await call_llm_api(prompt)
+        llm_response = await call_llm_api(prompt, model_type="reports")
         logger.info("LLM response received")
         logger.info(f"LLM response: {llm_response}")
 
@@ -1137,7 +1137,7 @@ DO NOT include any reasoning, thinking, or explanation tags in your response."""
         logger.info("Calling LLM API for weekly report with simplified prompt...")
         try:
             # Use the improved call_llm_api with retry logic
-            llm_response = await call_llm_api(simplified_prompt, max_retries=2)
+            llm_response = await call_llm_api(simplified_prompt, max_retries=2, model_type="reports")
             logger.info("LLM response received successfully")
         except Exception as e:
             logger.error(f"Error from LLM API: {str(e)}")
@@ -2030,7 +2030,7 @@ async def debug_llm():
             test_prompt = "Generate a short test response in JSON format with the following structure: {\"message\": \"your message\", \"timestamp\": \"current time\"}."
 
             logger.info("Sending test prompt to LLM API...")
-            response = await call_llm_api(test_prompt, max_retries=2)
+            response = await call_llm_api(test_prompt, max_retries=2, model_type="reports")
             logger.info("Received response from LLM API")
 
             # Test JSON extraction
@@ -2047,7 +2047,10 @@ async def debug_llm():
                     "provider_info": {
                         "type": "lmstudio",
                         "endpoint": settings.lmstudioEndpoint,
-                        "model": settings.lmstudioModel or "default"
+                        "default_model": settings.lmstudioModel or "default",
+                        "logs_model": settings.lmstudioLogsModel or settings.lmstudioModel or "default",
+                        "reports_model": settings.lmstudioReportsModel or settings.lmstudioModel or "default",
+                        "used_model": settings.lmstudioReportsModel or settings.lmstudioModel or "default"
                     }
                 }
             else:
@@ -2058,7 +2061,10 @@ async def debug_llm():
                     "provider_info": {
                         "type": "lmstudio",
                         "endpoint": settings.lmstudioEndpoint,
-                        "model": settings.lmstudioModel or "default"
+                        "default_model": settings.lmstudioModel or "default",
+                        "logs_model": settings.lmstudioLogsModel or settings.lmstudioModel or "default",
+                        "reports_model": settings.lmstudioReportsModel or settings.lmstudioModel or "default",
+                        "used_model": settings.lmstudioReportsModel or settings.lmstudioModel or "default"
                     }
                 }
         finally:

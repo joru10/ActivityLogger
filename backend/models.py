@@ -75,7 +75,9 @@ class Settings(Base):
     openRouterApiKey = Column(String, default="")
     openRouterLLM = Column(String, default="")
     lmstudioEndpoint = Column(String, default='http://localhost:1234/v1')
-    lmstudioModel = Column(String, default='default_model')
+    lmstudioModel = Column(String, default='default_model')  # Kept for backward compatibility
+    lmstudioLogsModel = Column(String, default='phi-3-mini-4k')  # Model for activity logs
+    lmstudioReportsModel = Column(String, default='gemma-7b')  # Model for reports
     categories = Column(Text, default=json.dumps([
         {
             "name": "Coding",
@@ -109,6 +111,8 @@ class Settings(Base):
             "openRouterLLM": str(self.openRouterLLM),
             "lmstudioEndpoint": str(self.lmstudioEndpoint),
             "lmstudioModel": str(self.lmstudioModel),
+            "lmstudioLogsModel": str(self.lmstudioLogsModel or self.lmstudioModel),  # Fall back to lmstudioModel if not set
+            "lmstudioReportsModel": str(self.lmstudioReportsModel or self.lmstudioModel),  # Fall back to lmstudioModel if not set
             "categories": self.get_categories()
         }
 
