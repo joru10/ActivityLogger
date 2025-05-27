@@ -3,10 +3,17 @@ from datetime import datetime
 import json
 import logging
 import atexit
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import inspect  # Add this import
+from sqlalchemy import Column, Integer, String, DateTime, Text, create_engine, event
+from sqlalchemy.orm import declarative_base, sessionmaker, Session, Mapped, mapped_column
+from typing import List, Dict, Any, Optional, Union, TypedDict, Literal
+import sqlite3
+import os
+import logging
+import json
+from datetime import datetime
+import atexit
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing_extensions import Annotated
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -35,21 +42,21 @@ logging.basicConfig()
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 # After engine creation, before Base.metadata.create_all
-def safe_init_database():
+def safe_init_database(engine_to_use):
     """Initialize database without dropping existing tables"""
-    inspector = inspect(engine)
+    inspector = inspect(engine_to_use)
     existing_tables = inspector.get_table_names()
 
     if not existing_tables:
         logger.info("No existing tables found, creating new database")
-        Base.metadata.create_all(bind=engine)
+        Base.metadata.create_all(bind=engine_to_use)
     else:
         logger.info(f"Found existing tables: {existing_tables}")
-        # Only create missing tables
+        # Only create missing tables using the provided engine
         for table in Base.metadata.sorted_tables:
             if table.name not in existing_tables:
                 logger.info(f"Creating missing table: {table.name}")
-                table.create(bind=engine)
+                table.create(bind=engine_to_use)
 
 # Create a configured "SessionLocal" class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -66,41 +73,98 @@ class ActivityLog(Base):
     duration_minutes = Column(Integer)
     description = Column(String)
 
+# Pydantic model for category group mapping
+class CategoryGroup(TypedDict):
+    name: str
+    groups: List[str]
+
+# Pydantic model for settings
+class SettingsModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    notificationInterval: int = Field(
+        default=60,
+        ge=1,
+        le=1440,  # 24 hours in minutes
+        description="Notification interval in minutes"
+    )
+    audioDevice: str = Field(
+        default="default",
+        description="Default audio device for recording"
+    )
+    llmProvider: str = Field(
+        default="LMStudio",
+        description="Default LLM provider"
+    )
+    openRouterApiKey: str = Field(
+        default="",
+        description="API key for OpenRouter service"
+    )
+    openRouterLLM: str = Field(
+        default="",
+        description="Default OpenRouter model"
+    )
+    lmstudioEndpoint: str = Field(
+        default="http://localhost:1234/v1",
+        description="LM Studio API endpoint"
+    )
+    lmstudioModel: str = Field(
+        default="default_model",
+        description="Default LM Studio model"
+    )
+    lmstudioLogsModel: str = Field(
+        default="phi-3-mini-4k",
+        description="LM Studio model for processing logs"
+    )
+    lmstudioReportsModel: str = Field(
+        default="gemma-7b",
+        description="LM Studio model for generating reports"
+    )
+    categories: List[CategoryGroup] = Field(
+        default_factory=lambda: [
+            {"name": "Coding", "groups": ["ActivityReports project", "ColabsReview", "MultiAgent"]},
+            {"name": "Training", "groups": ["NLP Course", "Deep Learning Specialization"]},
+            {"name": "Research", "groups": ["Paper Reading: Transformer-XX", "Video: New Architecture"]},
+            {"name": "Business", "groups": ["Project Bids", "Client Meetings"]},
+            {"name": "Work&Finance", "groups": ["Unemployment", "Work-search", "Pensions-related"]}
+        ],
+        description="Categories and their groups for activity classification"
+    )
+
+    @field_validator('categories')
+    @classmethod
+    def validate_categories(cls, v: List[CategoryGroup]) -> List[CategoryGroup]:
+        """Validate categories structure"""
+        if not isinstance(v, list):
+            raise ValueError("Categories must be a list")
+        
+        for cat in v:
+            if not isinstance(cat, dict) or 'name' not in cat or 'groups' not in cat:
+                raise ValueError("Each category must have 'name' and 'groups' keys")
+            if not isinstance(cat['name'], str) or not cat['name'].strip():
+                raise ValueError("Category name must be a non-empty string")
+            if not isinstance(cat['groups'], list) or not all(isinstance(g, str) for g in cat['groups']):
+                raise ValueError("Category groups must be a list of strings")
+        
+        return v
+
 class Settings(Base):
     __tablename__ = "settings"
-    id = Column(Integer, primary_key=True, index=True)
-    notificationInterval = Column(Integer, default=60)
-    audioDevice = Column(String, default="default")
-    llmProvider = Column(String, default="LMStudio")
-    openRouterApiKey = Column(String, default="")
-    openRouterLLM = Column(String, default="")
-    lmstudioEndpoint = Column(String, default='http://localhost:1234/v1')
-    lmstudioModel = Column(String, default='default_model')
-    categories = Column(Text, default=json.dumps([
-        {
-            "name": "Coding",
-            "groups": ["ActivityReports project", "ColabsReview", "MultiAgent"]
-        },
-        {
-            "name": "Training",
-            "groups": ["NLP Course", "Deep Learning Specialization"]
-        },
-        {
-            "name": "Research",
-            "groups": ["Paper Reading: Transformer-XX", "Video: New Architecture"]
-        },
-        {
-            "name": "Business",
-            "groups": ["Project Bids", "Client Meetings"]
-        },
-        {
-            "name": "Work&Finance",
-            "groups": ["Unemployment", "Work-search", "Pensions-related"]
-        }
-    ]))
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    notificationInterval: Mapped[int] = mapped_column(Integer, default=60)
+    audioDevice: Mapped[str] = mapped_column(String, default="default")
+    llmProvider: Mapped[str] = mapped_column(String, default="LMStudio")
+    openRouterApiKey: Mapped[str] = mapped_column(String, default="")
+    openRouterLLM: Mapped[str] = mapped_column(String, default="")
+    lmstudioEndpoint: Mapped[str] = mapped_column(String, default='http://localhost:1234/v1')
+    lmstudioModel: Mapped[str] = mapped_column(String, default='default_model')  # Backward compatibility
+    lmstudioLogsModel: Mapped[str] = mapped_column(String, default='phi-3-mini-4k')
+    lmstudioReportsModel: Mapped[str] = mapped_column(String, default='gemma-7b')
+    categories: Mapped[str] = mapped_column(Text, default=json.dumps(SettingsModel.model_fields['categories'].default_factory()))
 
-    def dict(self):
-        """Convert model to dictionary including parsed categories"""
+    def model_dump(self) -> dict:
+        """Convert model to dictionary including parsed categories (Pydantic v2 compatible)"""
         return {
             "notificationInterval": int(self.notificationInterval),
             "audioDevice": str(self.audioDevice),
@@ -109,34 +173,58 @@ class Settings(Base):
             "openRouterLLM": str(self.openRouterLLM),
             "lmstudioEndpoint": str(self.lmstudioEndpoint),
             "lmstudioModel": str(self.lmstudioModel),
+            "lmstudioLogsModel": str(self.lmstudioLogsModel or self.lmstudioModel),
+            "lmstudioReportsModel": str(self.lmstudioReportsModel or self.lmstudioModel),
             "categories": self.get_categories()
         }
+        
+    # Keep dict() as an alias for backward compatibility
+    dict = model_dump
 
-    def get_categories(self):
+    def get_categories(self) -> List[CategoryGroup]:
         """Return the categories as a Python object."""
         try:
-            return json.loads(self.categories) if self.categories else {}
+            if not self.categories:
+                return SettingsModel.model_fields['categories'].default_factory()
+            categories = json.loads(self.categories)
+            # Validate categories using Pydantic model
+            SettingsModel(categories=categories)
+            return categories
         except Exception as e:
             logger.error(f"Error parsing categories: {e}")
-            return {}
+            # Return default categories on error
+            return SettingsModel.model_fields['categories'].default_factory()
 
-    def set_categories(self, categories):
+    def set_categories(self, categories: List[CategoryGroup]) -> None:
         """Set the categories from a Python object."""
-        logger.info(f"Setting categories to: {json.dumps(categories, indent=2)}")
         try:
-            self.categories = json.dumps(categories)
+            # Validate categories using Pydantic model
+            validated = SettingsModel(categories=categories)
+            self.categories = json.dumps(validated.categories)
+            logger.info("Categories updated successfully")
         except Exception as e:
             logger.error(f"Error setting categories: {e}")
-            self.categories = "{}"
+            # Reset to default categories on error
+            self.categories = json.dumps(SettingsModel.model_fields['categories'].default_factory())
+            logger.info("Categories reset to default due to validation error")
 
     @property
-    def notification_interval(self):
+    def notification_interval(self) -> int:
+        """Get the notification interval in minutes."""
         return self.notificationInterval
 
     @notification_interval.setter
-    def notification_interval(self, value):
-        logger.info(f"Setting notification interval to: {value}")
-        self.notificationInterval = int(value)
+    def notification_interval(self, value: int) -> None:
+        """Set the notification interval in minutes (1-1440)."""
+        try:
+            interval = int(value)
+            if interval < 1 or interval > 1440:
+                raise ValueError("Interval must be between 1 and 1440 minutes")
+            logger.info(f"Setting notification interval to: {interval} minutes")
+            self.notificationInterval = interval
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid notification interval: {value}. Using default (60 minutes)")
+            self.notificationInterval = 60
 
 class Category(Base):
     __tablename__ = "categories"
@@ -159,26 +247,26 @@ class ReportCache(Base):
             logger.error(f"Error parsing report data: {e}")
             return {}
 
-# Initialize database and tables
-safe_init_database()
 
 # Ensure default settings exist
 # Modify the initialization code
-def init_default_settings():
-    db = SessionLocal()
+def init_default_settings(db: Session): # Takes a Session as an argument
+    # db = SessionLocal() # Session is now passed in
     try:
         existing_settings = db.query(Settings).first()
         if not existing_settings:
-            logger.info("No settings found, creating defaults")
-            default_settings = Settings()
+            logger.info("No settings found, creating defaults in provided session.")
+            default_settings = Settings() # Uses default values from model definition
             db.add(default_settings)
             db.commit()
+            logger.info("Default settings committed.")
         else:
-            logger.info(f"Found existing settings: {existing_settings.dict()}")
+            logger.info(f"Found existing settings in provided session: {existing_settings.model_dump()}")
     except Exception as e:
-        logger.error(f"Error initializing settings: {e}")
-    finally:
-        db.close()
+        logger.error(f"Error initializing settings in provided session: {e}")
+        db.rollback() # Rollback on error
+    # finally:
+        # db.close() # Caller manages session lifecycle
 
 # Add database backup before any operations
 def backup_database():
@@ -197,5 +285,3 @@ def backup_database():
 
 # Add this right after imports
 atexit.register(backup_database)
-
-init_default_settings()

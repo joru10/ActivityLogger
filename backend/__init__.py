@@ -1,2 +1,1 @@
-# This file marks the backend directory as a Python package
-# It allows for relative imports between modules in this package
+# Empty init file to make backend a subpackage of activitylogger

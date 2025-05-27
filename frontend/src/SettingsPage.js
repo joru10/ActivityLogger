@@ -36,16 +36,16 @@ const SettingsPage = () => {
   const handleGroupsChange = (index, newValue) => {
     setSettings((prev) => {
       const newCategories = [...prev.categories];
-      
+
       // Split and clean groups, preserving empty trailing input
       const groups = newValue.split(',');
       const cleanedGroups = groups.map(group => group.trim());
-      
+
       // Remove empty groups except for the last one (allows typing)
-      const finalGroups = groups.length > 1 
+      const finalGroups = groups.length > 1
         ? [...cleanedGroups.slice(0, -1).filter(g => g !== ''), cleanedGroups[cleanedGroups.length - 1]]
         : cleanedGroups;
-      
+
       newCategories[index].groups = finalGroups;
       return { ...prev, categories: newCategories };
     });
@@ -53,8 +53,14 @@ const SettingsPage = () => {
 
   const handleSave = async () => {
     try {
+      // Ensure all required fields are present
       const cleanedSettings = {
         ...settings,
+        // Make sure the new fields are included
+        lmstudioLogsModel: settings.lmstudioLogsModel || settings.lmstudioModel || 'phi-3-mini-4k',
+        lmstudioReportsModel: settings.lmstudioReportsModel || settings.lmstudioModel || 'gemma-7b',
+        lmstudioEndpoint: settings.lmstudioEndpoint || 'http://localhost:1234/v1',
+        lmstudioModel: settings.lmstudioModel || 'default_model',
         categories: settings.categories.map(category => ({
           ...category,
           groups: category.groups
@@ -62,6 +68,7 @@ const SettingsPage = () => {
         }))
       };
 
+      console.log('Saving settings:', cleanedSettings);
       const response = await axios.put('http://localhost:8000/api/settings', cleanedSettings);
       setSettings(response.data);
       setMessage("Settings updated successfully");
@@ -78,13 +85,13 @@ const SettingsPage = () => {
   return (
     <div style={{ padding: '20px' }}>
       <h1>Settings</h1>
-      
+
       <div style={{ marginBottom: '20px' }}>
         <label>
           Notification Interval (minutes):{' '}
-          <input 
-            type="number" 
-            value={settings.notificationInterval} 
+          <input
+            type="number"
+            value={settings.notificationInterval}
             onChange={(e) => handleOtherSettingChange("notificationInterval", parseInt(e.target.value))}
           />
         </label>
@@ -93,42 +100,99 @@ const SettingsPage = () => {
       <div style={{ marginBottom: '20px' }}>
         <label>
           Audio Device:{' '}
-          <input 
-            type="text" 
-            value={settings.audioDevice} 
+          <input
+            type="text"
+            value={settings.audioDevice}
             onChange={(e) => handleOtherSettingChange("audioDevice", e.target.value)}
           />
         </label>
       </div>
 
       <div style={{ marginBottom: '20px' }}>
-        <label>
-          LLM Provider:{' '}
-          <input 
-            type="text" 
-            value={settings.llmProvider} 
-            onChange={(e) => handleOtherSettingChange("llmProvider", e.target.value)}
-          />
-        </label>
+        <h2>LLM Settings</h2>
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            LLM Provider:{' '}
+            <input
+              type="text"
+              value={settings.llmProvider}
+              onChange={(e) => handleOtherSettingChange("llmProvider", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            LM Studio Endpoint:{' '}
+            <input
+              type="text"
+              value={settings.lmstudioEndpoint}
+              onChange={(e) => handleOtherSettingChange("lmstudioEndpoint", e.target.value)}
+              style={{ width: '300px' }}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            Default LLM Model:{' '}
+            <input
+              type="text"
+              value={settings.lmstudioModel}
+              onChange={(e) => handleOtherSettingChange("lmstudioModel", e.target.value)}
+            />
+          </label>
+          <div style={{ fontSize: '0.8em', color: '#666', marginTop: '5px', marginLeft: '10px' }}>
+            Used as fallback if specific models are not set
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            Activity Logs Model:{' '}
+            <input
+              type="text"
+              value={settings.lmstudioLogsModel || settings.lmstudioModel || ''}
+              onChange={(e) => handleOtherSettingChange("lmstudioLogsModel", e.target.value)}
+            />
+          </label>
+          <div style={{ fontSize: '0.8em', color: '#666', marginTop: '5px', marginLeft: '10px' }}>
+            Recommended: smaller models like phi-3-mini-4k for faster processing
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            Reports Model:{' '}
+            <input
+              type="text"
+              value={settings.lmstudioReportsModel || settings.lmstudioModel || ''}
+              onChange={(e) => handleOtherSettingChange("lmstudioReportsModel", e.target.value)}
+            />
+          </label>
+          <div style={{ fontSize: '0.8em', color: '#666', marginTop: '5px', marginLeft: '10px' }}>
+            Recommended: larger models like gemma-7b for better report quality
+          </div>
+        </div>
       </div>
 
       <div style={{ marginBottom: '20px' }}>
         <h2>Categories and Groups</h2>
         {settings.categories && settings.categories.map((category, index) => (
-          <div key={index} style={{ 
-            border: '1px solid #ccc', 
-            padding: '15px', 
+          <div key={index} style={{
+            border: '1px solid #ccc',
+            padding: '15px',
             marginBottom: '15px',
             borderRadius: '5px',
             backgroundColor: '#f9f9f9'
           }}>
             <div>
               <strong>Category Name:</strong>{' '}
-              <input 
-                type="text" 
-                value={category.name} 
+              <input
+                type="text"
+                value={category.name}
                 onChange={(e) => handleCategoryNameChange(index, e.target.value)}
-                style={{ 
+                style={{
                   marginLeft: '10px',
                   padding: '5px',
                   borderRadius: '3px',
@@ -138,11 +202,11 @@ const SettingsPage = () => {
             </div>
             <div style={{ marginTop: '10px' }}>
               <strong>Groups:</strong>{' '}
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={category.groups.join(', ')}
                 onChange={(e) => handleGroupsChange(index, e.target.value)}
-                style={{ 
+                style={{
                   marginLeft: '10px',
                   width: '80%',
                   padding: '5px',
@@ -151,7 +215,7 @@ const SettingsPage = () => {
                 }}
                 placeholder="Enter groups separated by commas"
               />
-              <div style={{ 
+              <div style={{
                 fontSize: '0.8em',
                 color: '#666',
                 marginTop: '5px',
@@ -164,7 +228,7 @@ const SettingsPage = () => {
         ))}
       </div>
 
-      <button 
+      <button
         onClick={handleSave}
         style={{
           padding: '10px 20px',

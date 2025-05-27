@@ -1,24 +1,52 @@
 import json
 import logging
 from datetime import date
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class DailyTimeBreakdown(BaseModel):
-    total_time: float
-    time_by_group: dict[str, float]
-    time_by_category: dict[str, float] = {}
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    total_time: float = Field(..., ge=0, description="Total time spent in minutes")
+    time_by_group: dict[str, float] = Field(
+        default_factory=dict,
+        description="Time spent by group in minutes"
+    )
+    time_by_category: dict[str, float] = Field(
+        default_factory=dict,
+        description="Time spent by category in minutes"
+    )
 
 class ChartData(BaseModel):
-    chart_type: str  # 'bar', 'pie', 'line', etc.
-    labels: list[str]
-    datasets: list[dict]
-    title: str
-    description: str = ""
-    options: dict = {}
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    chart_type: str = Field(
+        ...,
+        pattern=r'^(bar|pie|line|doughnut|radar|polarArea|bubble|scatter|radar)$',
+        description="Type of chart to render"
+    )
+    labels: list[str] = Field(
+        default_factory=list,
+        min_length=1,
+        description="Labels for the chart axes"
+    )
+    datasets: list[dict] = Field(
+        default_factory=list,
+        min_length=1,
+        description="Chart.js dataset configuration"
+    )
+    title: str = Field(..., min_length=1, description="Chart title")
+    description: str = Field(
+        default="",
+        description="Optional chart description for accessibility"
+    )
+    options: dict = Field(
+        default_factory=dict,
+        description="Chart.js options configuration"
+    )
 
 def generate_html_report(start_date: date, end_date: date, total_time: float, time_by_group: dict,
                          time_by_category: dict, daily_breakdown: dict, visualizations: dict,
@@ -737,7 +765,7 @@ def generate_html_report(start_date: date, end_date: date, total_time: float, ti
             )
 
             # Log the final chart data
-            logger.info(f"Final category_group_chart data: {json.dumps(visualizations['category_group_chart'].dict(), indent=2)[:500]}...")
+            logger.info(f"Final category_group_chart data: {json.dumps(visualizations['category_group_chart'].model_dump(), indent=2)[:500]}...")
 
     logger.info(f"Created {len(visualizations)} visualizations for the report")
 
