@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, date, time
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import and_
-from models import SessionLocal, ActivityLog, Settings
-from report_templates import DailyTimeBreakdown, ChartData, generate_html_report
-from reports import WeeklyReport, generate_weekly_report
+from .models import SessionLocal, ActivityLog, Settings
+from .report_templates import DailyTimeBreakdown, ChartData, generate_html_report
+from .reports import WeeklyReport, generate_weekly_report
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)

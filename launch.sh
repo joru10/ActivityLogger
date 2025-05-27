@@ -10,9 +10,9 @@ fi
 start_backend() {
     echo "Starting backend..."
     source venv/bin/activate
-    cd backend
-    # Set PYTHONPATH to include the current directory for proper imports
-    PYTHONPATH=$(pwd) uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    # Run uvicorn from the project root to properly handle package imports
+    # This allows relative imports in the backend package to work correctly
+    uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 }
 
 # Function to start frontend
@@ -33,7 +33,7 @@ case $1 in
         ;;
     *)
         # Start both in parallel
-        start_backend & 
+        start_backend &
         start_frontend &
         wait
         ;;

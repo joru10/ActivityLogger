@@ -8,12 +8,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import recording
-import api  # Import the router from api.py
-import reports
-import custom_reports
-import scheduler  # Import the scheduler module
-from scheduler import start_scheduler
+from . import recording
+from . import api  # Import the router from api.py
+from . import reports
+from . import custom_reports
+from . import scheduler  # Import the scheduler module
+from .scheduler import start_scheduler
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -22,7 +22,8 @@ logger.info(f"Python version: {sys.version}")
 
 # Import report fix middleware to ensure all reports have valid HTML content
 try:
-    import report_fix_middleware
+    # Import report fix middleware from the correct package path
+    import activitylogger.backend.report_fix_middleware as report_fix_middleware
     logger.info("Report fix middleware loaded successfully")
 except Exception as e:
     logger.error(f"Error loading report fix middleware: {e}")
@@ -62,12 +63,7 @@ async def debug_routes():
 async def root():
     return {"message": "ActivityLogger API is running."}
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting application initialization...")
-    start_scheduler()
-    logger.info("Scheduler started successfully")
-
+# Ensure old startup event is completely removed
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

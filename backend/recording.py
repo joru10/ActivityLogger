@@ -7,12 +7,12 @@ import logging
 import requests
 import json
 import re
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError, field_validator, Field, ConfigDict
 from typing import List
 import yaml
-from models import SessionLocal, ActivityLog, Settings
+from .models import SessionLocal, ActivityLog, Settings
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from llm_service import call_llm_api, extract_json_from_response  # Import both functions
+from .llm_service import call_llm_api, extract_json_from_response  # Import both functions
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,28 +23,44 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Define a Pydantic model for an activity log record.
 class Activity(BaseModel):
-    group: str
-    category: str = "Other"  # Make category optional with a default value
-    timestamp: str
-    duration_minutes: int
-    description: str
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    group: str = Field(..., min_length=1, description="Activity group name")
+    category: str = Field(
+        default="Other",
+        description="Activity category, defaults to 'Other'"
+    )
+    timestamp: str = Field(
+        ...,
+        description="ISO format timestamp of when the activity occurred"
+    )
+    duration_minutes: int = Field(
+        ...,
+        gt=0,
+        description="Duration of the activity in minutes (must be positive)"
+    )
+    description: str = Field(
+        ...,
+        min_length=1,
+        description="Description of the activity"
+    )
 
     @field_validator('timestamp')
     @classmethod
-    def validate_timestamp(cls, v):
+    def validate_timestamp(cls, v: str) -> str:
         """Validate that the timestamp is in a proper ISO format"""
         try:
-            # Try to parse the timestamp
+            # Try to parse the timestamp (strip timezone info for validation)
             datetime.fromisoformat(v.split('+')[0].strip())
             return v
         except (ValueError, TypeError) as e:
-            # If it fails, generate a valid timestamp
+            # If it fails, generate a valid timestamp with millisecond precision
             logger.warning(f"Invalid timestamp format '{v}', using current time instead")
             return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
     @field_validator('duration_minutes')
     @classmethod
-    def validate_duration(cls, v):
+    def validate_duration(cls, v: int) -> int:
         """Ensure duration is a positive integer"""
         if not isinstance(v, int) or v <= 0:
             logger.warning(f"Invalid duration '{v}', using default of 30 minutes")

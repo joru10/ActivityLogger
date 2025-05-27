@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 import logging
-from reports import generate_activity_report
+from activitylogger.backend.reports import generate_activity_report
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

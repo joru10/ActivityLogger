@@ -3,7 +3,8 @@ import logging
 import httpx
 import re
 from datetime import datetime
-from models import SessionLocal, Settings
+from typing import Optional
+from .models import SessionLocal, Settings
 
 logger = logging.getLogger(__name__)
 
@@ -111,11 +112,12 @@ async def call_llm_api(prompt: str, max_retries: int = 3, model_type: str = "log
     finally:
         db.close()
 
+# Refactored extract_json_from_response with state machine approach
 def extract_json_from_response(response: str) -> dict:
     """Extract and validate JSON from LLM response with enhanced error handling"""
-    original_response = response  # Keep a copy of the original for debugging
+    original_response = response
     logger.debug(f"Original response length: {len(original_response)} characters")
-
+    
     # Handle empty or None responses
     if not response or response.isspace():
         logger.error("Empty or whitespace-only response received from LLM")
@@ -321,109 +323,154 @@ def extract_json_from_response(response: str) -> dict:
                 potential_json = response[start_idx:end_idx+1]
                 try:
                     json_data = json.loads(potential_json)
-                    logger.info("Successfully extracted JSON object using pattern matching")
                     validate_response_structure(json_data)
                     return json_data
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse extracted JSON object: {e}")
-                    # Try to fix common JSON issues
-                    fixed_json = fix_common_json_errors(potential_json)
-                    if fixed_json != potential_json:
-                        try:
-                            json_data = json.loads(fixed_json)
-                            logger.info("Successfully parsed JSON after fixing common errors")
-                            validate_response_structure(json_data)
-                            return json_data
-                        except json.JSONDecodeError:
-                            # If that still fails, continue with the full response
-                            logger.warning("Failed to parse JSON even after fixing common errors")
+                    raise
+                except Exception as e:
+                    logger.warning(f"Error during JSON object extraction: {e}")
+                    raise
         except Exception as e:
             logger.warning(f"Error during JSON object extraction: {e}")
+            raise
 
-    # Try to parse the entire response as JSON
+    # If we get here, no valid JSON was found
+    logger.error("No valid JSON found in response")
+    raise ValueError("No valid JSON found in response")
+
+
+class JSONRecoveryError(Exception):
+    """Custom exception for JSON recovery failures"""
+    pass
+
+
+class JSONParser:
+    """Class-based JSON parser with systematic error recovery"""
+
+    def __init__(self, json_str: str):
+        self.json_str = json_str
+        self.fixed = json_str
+        self._original = json_str
+
+    def fix_unquoted_keys(self):
+        """Fix JSON keys that need quotes"""
+        self.fixed = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', self.fixed)
+
+    def fix_trailing_commas(self):
+        """Fix trailing commas in JSON arrays and objects"""
+        self.fixed = self.fixed.replace(",]", "]")
+        self.fixed = self.fixed.replace(",}", "}")
+
+    def fix_incomplete_structures(self):
+        """Fix imbalanced JSON structures"""
+        open_curly = self.fixed.count('{')
+        close_curly = self.fixed.count('}')
+        open_square = self.fixed.count('[')
+        close_square = self.fixed.count(']')
+
+        if open_curly > close_curly:
+            self.fixed += '}' * (open_curly - close_curly)
+
+        if open_square > close_square:
+            self.fixed += ']' * (open_square - close_square)
+
+    def fix_unescaped_quotes(self):
+        """Fix unescaped quotes in JSON strings"""
+        # Replace single quotes with double quotes outside strings
+        in_string = False
+        in_escape = False
+        result = ""
+
+        for char in self.fixed:
+            if char == '\\' and not in_escape:
+                in_escape = True
+                result += char
+            elif in_escape:
+                in_escape = False
+                result += char
+            elif char == '"' and not in_escape:
+                in_string = not in_string
+                result += char
+            elif char == "'" and not in_string:
+                result += '"'
+            else:
+                result += char
+
+        self.fixed = result
+
+    def fix_incomplete_values(self):
+        """Fix incomplete values like "duration_minutes": )"""
+        self.fixed = re.sub(r'"duration_minutes"\s*:\s*\)', '"duration_minutes": 30', self.fixed)
+
+    def validate(self) -> bool:
+        """Validate the fixed JSON"""
+        try:
+            json.loads(self.fixed)
+            return True
+        except json.JSONDecodeError:
+            return False
+
+    def get_fixed_json(self) -> str:
+        """Get the fixed JSON string"""
+        return self.fixed
+
+
+def extract_json_array(response: str) -> Optional[dict]:
+    """Extract JSON array from response"""
+    start_idx = response.find('[')
+    if start_idx != -1:
+        try:
+            return json.loads(response[start_idx:response.rfind(']')+1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def extract_json_object(response: str) -> Optional[dict]:
+    """Extract JSON object from response"""
     try:
-        json_data = json.loads(response)
-        logger.info(f"Successfully parsed entire response as JSON of type {type(json_data)}")
-        validate_response_structure(json_data)
-        return json_data
-    except json.JSONDecodeError as e:
-        # Try to fix common JSON errors in the entire response
-        fixed_response = fix_common_json_errors(response)
-        if fixed_response != response:
-            try:
-                json_data = json.loads(fixed_response)
-                logger.info("Successfully parsed JSON after fixing common errors in full response")
-                validate_response_structure(json_data)
-                return json_data
-            except json.JSONDecodeError as e2:
-                logger.error(f"Failed to parse fixed JSON: {e2}")
+        return json.loads(response)
+    except json.JSONDecodeError:
+        return None
 
-        # If all attempts fail, log detailed error information
-        logger.error(f"Failed to parse JSON: {e}")
-        logger.error(f"Processed response: {response[:200]}...")
-        logger.error(f"Original response: {original_response[:200]}...")
-        raise ValueError(f"Invalid JSON response from LLM: {str(e)}")
+
+def extract_from_code_blocks(response: str) -> Optional[dict]:
+    """Extract JSON from code blocks in response"""
+    if code_block_match := re.search(r'```json\n(.*?)\n```', response, re.DOTALL):
+        try:
+            return json.loads(code_block_match.group(1))
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def attempt_full_json_parse(response: str) -> dict:
+    """Attempt full JSON parsing with error recovery"""
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Basic JSON parsing failed: {e}")
+        fixed_json = fix_common_json_errors(response)
+        return json.loads(fixed_json)
 
 
 def fix_common_json_errors(json_str: str) -> str:
-    """Fix common JSON formatting errors including incomplete JSON structures"""
-    # Replace single quotes with double quotes (but not inside already quoted strings)
-    # This is a simplified approach and may not work for all cases
-    fixed = ""
-    in_string = False
-    in_escape = False
+    """Systematically fix common JSON errors using structured parsing"""
+    parser = JSONParser(json_str)
 
-    for char in json_str:
-        if char == '\\' and not in_escape:
-            in_escape = True
-            fixed += char
-        elif in_escape:
-            in_escape = False
-            fixed += char
-        elif char == '"' and not in_escape:
-            in_string = not in_string
-            fixed += char
-        elif char == "'" and not in_string:
-            fixed += '"'
-        else:
-            fixed += char
+    # Apply systematic fixes
+    parser.fix_unquoted_keys()
+    parser.fix_trailing_commas()
+    parser.fix_incomplete_structures()
+    parser.fix_unescaped_quotes()
+    parser.fix_incomplete_values()
 
-    # Fix trailing commas in arrays and objects
-    fixed = fixed.replace(",]", "]")
-    fixed = fixed.replace(",}", "}")
-
-    # Fix missing quotes around keys
-    # This is a simplified approach that won't work for all cases
-    fixed = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', fixed)
-
-    # Fix missing commas between array items - this is a common issue with LLMs
-    # Look for pattern: }\s*{ (closing brace followed by opening brace with only whitespace between)
-    fixed = re.sub(r'}\s*{', '},{', fixed)
-
-    # Fix incomplete values like "duration_minutes": )
-    # Replace with a default value
-    fixed = re.sub(r'"duration_minutes"\s*:\s*\)', '"duration_minutes": 30', fixed)
-
-    # Fix empty or incomplete timestamp values
-    fixed = re.sub(r'"timestamp"\s*:\s*"[^"]*"\s*,', '"timestamp": "' + datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + '",', fixed)
-
-    # Fix incomplete JSON structures
-    # Count opening and closing braces/brackets to detect imbalance
-    open_curly = fixed.count('{')
-    close_curly = fixed.count('}')
-    open_square = fixed.count('[')
-    close_square = fixed.count(']')
-
-    # Add missing closing braces/brackets
-    if open_curly > close_curly:
-        fixed += '}' * (open_curly - close_curly)
-        logger.info(f"Added {open_curly - close_curly} missing closing curly braces")
-
-    if open_square > close_square:
-        fixed += ']' * (open_square - close_square)
-        logger.info(f"Added {open_square - close_square} missing closing square brackets")
-
-    return fixed
+    # Validate fixed JSON
+    if parser.validate():
+        return parser.get_fixed_json()
+    else:
+        raise JSONRecoveryError("Failed to fix JSON structure")
 
 def validate_response_structure(data) -> None:
     """Validate the structure of the LLM response"""

@@ -7,58 +7,112 @@ import re
 from datetime import datetime, timedelta, date, time
 from fastapi import HTTPException
 from sqlalchemy import and_
-from models import SessionLocal, ActivityLog, Settings, ReportCache
-from config import get_categories_json
+from .models import SessionLocal, ActivityLog, Settings, ReportCache
+from .config import get_categories_json
 from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 import httpx
 import sys
 import traceback
 from pathlib import Path
+from typing import Optional
 
 # Import the report templates module
-from report_templates import generate_html_report
-
-# Import model classes from report_templates
-from report_templates import DailyTimeBreakdown, ChartData
+from .report_templates import generate_html_report, DailyTimeBreakdown, ChartData
 
 # Import report utilities
-from report_utils import ensure_html_report
+from .report_utils import ensure_html_report
 
 # Import the weekly report fix
-from weekly_report_fix import generate_weekly_report_html
+from .weekly_report_fix import generate_weekly_report_html
 
 class WeeklyReportExecutiveSummary(BaseModel):
-    total_time: float
-    time_by_group: dict[str, float]
-    time_by_category: dict[str, float] = {}
-    daily_breakdown: dict[str, DailyTimeBreakdown] = {}
-    progress_report: str = ""
-    key_insights: list[str] = []
-    recommendations: list[str] = []
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    total_time: float = Field(..., ge=0, description="Total time in minutes")
+    time_by_group: dict[str, float] = Field(
+        default_factory=dict,
+        description="Time spent by group in minutes"
+    )
+    time_by_category: dict[str, float] = Field(
+        default_factory=dict,
+        description="Time spent by category in minutes"
+    )
+    daily_breakdown: dict[str, DailyTimeBreakdown] = Field(
+        default_factory=dict,
+        description="Daily breakdown of time spent"
+    )
+    progress_report: str = Field(
+        default="",
+        description="Textual summary of progress"
+    )
+    key_insights: list[str] = Field(
+        default_factory=list,
+        description="List of key insights from the week"
+    )
+    recommendations: list[str] = Field(
+        default_factory=list,
+        description="List of recommendations for improvement"
+    )
 
 class WeeklyReport(BaseModel):
-    executive_summary: WeeklyReportExecutiveSummary = None
-    details: list = []
-    markdown_report: str = ""
-    html_report: str = ""  # HTML version with embedded charts
-    group_to_category_mapping: dict = {}  # Mapping of groups to their categories
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    executive_summary: Optional[WeeklyReportExecutiveSummary] = Field(
+        default=None,
+        description="Summary of the weekly report"
+    )
+    details: list[dict] = Field(
+        default_factory=list,
+        description="Detailed activity data"
+    )
+    markdown_report: str = Field(
+        default="",
+        description="Markdown formatted report"
+    )
+    html_report: str = Field(
+        default="",
+        description="HTML version with embedded charts"
+    )
+    group_to_category_mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping of activity groups to their categories"
+    )
 
 class MonthlyReport(BaseModel):
-    html_report: str = ""  # HTML version with embedded charts
-
-    def model_dump(self):
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    html_report: str = Field(
+        default="",
+        description="HTML version with embedded charts"
+    )
+    
+    def model_dump(self, **kwargs):
         """Return a dictionary representation of the model."""
-        return {
-            "html_report": self.html_report
-        }
+        return super().model_dump(**kwargs) or {"html_report": self.html_report}
 
 class QuarterlyReport(BaseModel):
-    html_report: str = ""  # HTML version with embedded charts
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    html_report: str = Field(
+        default="",
+        description="HTML version with embedded charts"
+    )
+    
+    def model_dump(self, **kwargs):
+        return super().model_dump(**kwargs) or {"html_report": self.html_report}
 
 class AnnualReport(BaseModel):
-    html_report: str = ""  # HTML version with embedded charts
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    
+    html_report: str = Field(
+        default="",
+        description="HTML version with embedded charts"
+    )
+    
+    def model_dump(self, **kwargs):
+        return super().model_dump(**kwargs) or {"html_report": self.html_report}
 
 # Add json2csv directory to path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__))))
@@ -196,7 +250,7 @@ def extract_json_from_response(response: str) -> dict:
         raise ValueError("Invalid JSON response from LLM")
 
 # Import the LLM service functions with explicit imports
-from llm_service import call_llm_api, extract_json_from_response, fix_common_json_errors
+from .llm_service import call_llm_api, extract_json_from_response, fix_common_json_errors
 
 def load_report_profile(profile_name: str) -> str:
     """Loads the YAML profile for a given report."""
@@ -491,6 +545,7 @@ async def generate_weekly_report(start_date: date, end_date: date, logs_data: li
             duration = log["duration_minutes"]
             timestamp = log["timestamp"]
             day = timestamp.split()[0]  # Extract YYYY-MM-DD part
+            time_by_day[day] += duration  # Aggregate by day
 
             # Ensure the day is within our date range
             if day in daily_breakdown:

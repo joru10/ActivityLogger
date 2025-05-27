@@ -10,9 +10,9 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from sqlalchemy import and_, func
 from fastapi import APIRouter
-from models import SessionLocal, ActivityLog
+from .models import SessionLocal, ActivityLog
 # Only import functions that actually exist
-from reports import generate_daily_report_for_date, generate_weekly_report as gen_weekly_report, DailyTimeBreakdown
+from .reports import generate_daily_report_for_date, generate_weekly_report as gen_weekly_report, DailyTimeBreakdown
 
 # Setup logging
 logger = logging.getLogger(__name__)
